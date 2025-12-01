@@ -1,0 +1,49 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# User-specific Xcode files
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Packages/
+
+# CocoaPods (if used later)
+Pods/
+
+# Fastlane (if used later)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code coverage
+*.gcno
+*.gcda
+*.profraw
+*.profdata
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# App-specific secrets (if any added later)
+Secrets.swift
+*.pem
+*.p12

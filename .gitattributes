@@ -1,0 +1,30 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Xcode project files - treat as binary to avoid merge conflicts
+*.pbxproj binary
+*.xcdatamodeld binary
+
+# Swift source files
+*.swift text diff=swift
+
+# Explicitly declare text files
+*.md text
+*.json text
+*.plist text
+*.strings text
+*.storyboard text
+*.xib text
+*.entitlements text
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# ML models
+*.mlmodel binary
+*.mlmodelc binary
