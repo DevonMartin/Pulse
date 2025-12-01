@@ -546,6 +546,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pulse/Resources/Info.plist;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pulse reads your heart rate, HRV, sleep, and activity data to calculate your daily readiness score and track how your body responds to activity over time.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pulse does not write any data to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -581,6 +582,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pulse/Resources/Info.plist;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pulse reads your heart rate, HRV, sleep, and activity data to calculate your daily readiness score and track how your body responds to activity over time.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pulse does not write any data to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

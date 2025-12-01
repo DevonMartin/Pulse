@@ -6,56 +6,163 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @Environment(AppContainer.self) private var container
+
+    @State private var metrics: HealthMetrics?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
+        NavigationStack {
+            Group {
+                if isLoading {
+                    ProgressView("Loading health data...")
+                } else if let error = errorMessage {
+                    ContentUnavailableView(
+                        "Unable to Load Data",
+                        systemImage: "heart.slash",
+                        description: Text(error)
+                    )
+                } else if let metrics = metrics {
+                    HealthMetricsView(metrics: metrics)
+                } else {
+                    ContentUnavailableView(
+                        "No Health Data",
+                        systemImage: "heart.text.square",
+                        description: Text("No health data available for today.")
+                    )
                 }
-                .onDelete(perform: deleteItems)
             }
+            .navigationTitle("Today's Metrics")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        Task { await loadMetrics() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
                     }
+                    .disabled(isLoading)
                 }
             }
-        } detail: {
-            Text("Select an item")
+        }
+        .task {
+            await requestAuthorizationAndLoadMetrics()
         }
     }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
+    // MARK: - Data Loading
+
+    private func requestAuthorizationAndLoadMetrics() async {
+        do {
+            try await container.healthKitService.requestAuthorization()
+            await loadMetrics()
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+    private func loadMetrics() async {
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            metrics = try await container.healthKitService.fetchMetrics(for: Date())
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        isLoading = false
+    }
+}
+
+// MARK: - Health Metrics View
+
+/// Displays health metrics in a clean, readable format.
+private struct HealthMetricsView: View {
+    let metrics: HealthMetrics
+
+    var body: some View {
+        List {
+            Section("Heart") {
+                MetricRow(
+                    title: "Resting Heart Rate",
+                    value: metrics.restingHeartRate.map { "\(Int($0)) bpm" },
+                    icon: "heart.fill",
+                    color: .red
+                )
+                MetricRow(
+                    title: "Heart Rate Variability",
+                    value: metrics.hrv.map { "\(Int($0)) ms" },
+                    icon: "waveform.path.ecg",
+                    color: .pink
+                )
+            }
+
+            Section("Sleep") {
+                MetricRow(
+                    title: "Sleep Duration",
+                    value: metrics.formattedSleepDuration,
+                    icon: "bed.double.fill",
+                    color: .indigo
+                )
+            }
+
+            Section("Activity") {
+                MetricRow(
+                    title: "Steps",
+                    value: metrics.steps.map { "\($0.formatted())" },
+                    icon: "figure.walk",
+                    color: .green
+                )
+                MetricRow(
+                    title: "Active Calories",
+                    value: metrics.activeCalories.map { "\(Int($0)) kcal" },
+                    icon: "flame.fill",
+                    color: .orange
+                )
             }
         }
     }
 }
 
+// MARK: - Metric Row
+
+/// A single row displaying a health metric with an icon.
+private struct MetricRow: View {
+    let title: String
+    let value: String?
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundStyle(color)
+                .frame(width: 24)
+
+            Text(title)
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            if let value = value {
+                Text(value)
+                    .foregroundStyle(.secondary)
+                    .fontWeight(.medium)
+            } else {
+                Text("--")
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+}
+
+// MARK: - Preview
+
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .environment(AppContainer(healthKitService: MockHealthKitService()))
 }

@@ -10,7 +10,14 @@ import SwiftData
 
 @main
 struct PulseApp: App {
-    var sharedModelContainer: ModelContainer = {
+
+    // MARK: - Dependencies
+
+    /// The app's dependency container, created once at launch.
+    @State private var container = AppContainer()
+
+    /// SwiftData model container for persistence.
+    private var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,
         ])
@@ -23,9 +30,12 @@ struct PulseApp: App {
         }
     }()
 
+    // MARK: - Body
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(container)
         }
         .modelContainer(sharedModelContainer)
     }
