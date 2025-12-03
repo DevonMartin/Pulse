@@ -57,7 +57,7 @@ final class MockHealthKitService: HealthKitServiceProtocol {
 
     func fetchMetrics(for date: Date) async throws -> HealthMetrics {
         fetchMetricsDates.append(date)
-		try await Task.sleep(nanoseconds: 1_000_000_000)
+		try await Task.sleep(nanoseconds: 100_000_000)
 
         // Return custom mock data if set, otherwise return realistic sample data
         if let mockMetrics = mockMetrics {

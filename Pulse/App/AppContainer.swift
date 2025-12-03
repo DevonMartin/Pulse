@@ -6,6 +6,7 @@
 //
 
 import HealthKit
+import SwiftData
 
 /// The dependency injection container for the app.
 ///
@@ -18,12 +19,18 @@ import HealthKit
 /// - Flexibility: Easy to swap implementations (e.g., mock vs real HealthKit)
 /// - Clarity: All dependencies visible in one place
 @Observable
+@MainActor
 final class AppContainer {
 
     // MARK: - Services
 
     /// The health data service. Uses mock in simulator, real HealthKit on device.
     let healthKitService: HealthKitServiceProtocol
+
+    // MARK: - Repositories
+
+    /// The check-in data repository
+    let checkInRepository: CheckInRepositoryProtocol
 
     // MARK: - Environment Detection
 
@@ -39,7 +46,8 @@ final class AppContainer {
     // MARK: - Initialization
 
     /// Creates the production container with real dependencies.
-    init() {
+    /// - Parameter modelContainer: The SwiftData model container for persistence
+    init(modelContainer: ModelContainer) {
         // Use mock in simulator (HealthKit auth doesn't work there),
         // real HealthKit on physical devices
         if AppContainer.isSimulator {
@@ -54,10 +62,17 @@ final class AppContainer {
             mock.mockAuthorizationStatus = .unavailable
             self.healthKitService = mock
         }
+
+        // Create repository with the model container
+        self.checkInRepository = CheckInRepository(modelContainer: modelContainer)
     }
 
     /// Creates a container with custom dependencies (for testing/previews).
-    init(healthKitService: HealthKitServiceProtocol) {
+    init(
+        healthKitService: HealthKitServiceProtocol,
+        checkInRepository: CheckInRepositoryProtocol? = nil
+    ) {
         self.healthKitService = healthKitService
+        self.checkInRepository = checkInRepository ?? MockCheckInRepository()
     }
 }

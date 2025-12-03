@@ -180,3 +180,165 @@ struct HealthMetricsTests {
         #expect(emptyMetrics.hasAnyData == false)
     }
 }
+
+// MARK: - CheckIn Model Tests
+
+struct CheckInTests {
+
+    @Test func checkInIsTodayWhenTimestampIsToday() {
+        let checkIn = CheckIn(
+            timestamp: Date(),
+            type: .morning,
+            energyLevel: 3
+        )
+
+        #expect(checkIn.isToday == true)
+    }
+
+    @Test func checkInIsNotTodayWhenTimestampIsYesterday() {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let checkIn = CheckIn(
+            timestamp: yesterday,
+            type: .morning,
+            energyLevel: 3
+        )
+
+        #expect(checkIn.isToday == false)
+    }
+
+    @Test func energyDescriptionMapsCorrectly() {
+        let levels = [1, 2, 3, 4, 5]
+        let expected = ["Very Low", "Low", "Moderate", "High", "Very High"]
+
+        for (level, description) in zip(levels, expected) {
+            let checkIn = CheckIn(type: .morning, energyLevel: level)
+            #expect(checkIn.energyDescription == description)
+        }
+    }
+}
+
+// MARK: - MockCheckInRepository Tests
+
+struct MockCheckInRepositoryTests {
+
+    @Test func saveAddsCheckInToList() async throws {
+        let repository = MockCheckInRepository()
+        let checkIn = CheckIn(type: .morning, energyLevel: 4)
+
+        try await repository.save(checkIn)
+
+        let checkIns = await repository.checkIns
+        #expect(checkIns.count == 1)
+        #expect(checkIns.first?.energyLevel == 4)
+    }
+
+    @Test func getTodaysCheckInReturnsMorningCheckIn() async throws {
+        let repository = MockCheckInRepository()
+        let checkIn = CheckIn(type: .morning, energyLevel: 5)
+        try await repository.save(checkIn)
+
+        let result = try await repository.getTodaysCheckIn(type: .morning)
+
+        #expect(result != nil)
+        #expect(result?.energyLevel == 5)
+    }
+
+    @Test func getTodaysCheckInReturnsNilForDifferentType() async throws {
+        let repository = MockCheckInRepository()
+        let checkIn = CheckIn(type: .morning, energyLevel: 5)
+        try await repository.save(checkIn)
+
+        let result = try await repository.getTodaysCheckIn(type: .evening)
+
+        #expect(result == nil)
+    }
+
+    @Test func deleteRemovesCheckIn() async throws {
+        let repository = MockCheckInRepository()
+        let checkIn = CheckIn(type: .morning, energyLevel: 3)
+        try await repository.save(checkIn)
+
+        try await repository.delete(id: checkIn.id)
+
+        let checkIns = await repository.checkIns
+        #expect(checkIns.isEmpty)
+    }
+
+    @Test func getRecentCheckInsRespectsLimit() async throws {
+        let repository = MockCheckInRepository()
+
+        // Add 5 check-ins
+        for i in 1...5 {
+            let date = Calendar.current.date(byAdding: .hour, value: -i, to: Date())!
+            let checkIn = CheckIn(timestamp: date, type: .morning, energyLevel: i)
+            try await repository.save(checkIn)
+        }
+
+        let recent = try await repository.getRecentCheckIns(limit: 3)
+
+        #expect(recent.count == 3)
+    }
+}
+
+// MARK: - HealthSnapshotEntity Tests
+
+struct HealthSnapshotEntityTests {
+
+    @Test func initFromHealthMetricsPreservesValues() {
+        let metrics = HealthMetrics(
+            date: Date(),
+            restingHeartRate: 62,
+            hrv: 45,
+            sleepDuration: 7 * 3600,
+            steps: 8000,
+            activeCalories: 350
+        )
+
+        let entity = HealthSnapshotEntity(from: metrics)
+
+        #expect(entity.restingHeartRateValue == 62)
+        #expect(entity.hrvValue == 45)
+        #expect(entity.sleepDurationValue == 7 * 3600)
+        #expect(entity.stepsValue == 8000)
+        #expect(entity.activeCaloriesValue == 350)
+    }
+
+    @Test func nilMetricsResultInNilOptionalAccessors() {
+        let metrics = HealthMetrics(
+            date: Date(),
+            restingHeartRate: nil,
+            hrv: nil,
+            sleepDuration: nil,
+            steps: nil,
+            activeCalories: nil
+        )
+
+        let entity = HealthSnapshotEntity(from: metrics)
+
+        #expect(entity.restingHeartRateValue == nil)
+        #expect(entity.hrvValue == nil)
+        #expect(entity.sleepDurationValue == nil)
+        #expect(entity.stepsValue == nil)
+        #expect(entity.activeCaloriesValue == nil)
+    }
+
+    @Test func toHealthMetricsRoundTripsCorrectly() {
+        let original = HealthMetrics(
+            date: Date(),
+            restingHeartRate: 65,
+            hrv: 50,
+            sleepDuration: 8 * 3600,
+            steps: 10000,
+            activeCalories: 500
+        )
+
+        let entity = HealthSnapshotEntity(from: original)
+        let converted = entity.toHealthMetrics()
+
+        #expect(converted.restingHeartRate == original.restingHeartRate)
+        #expect(converted.hrv == original.hrv)
+        #expect(converted.sleepDuration == original.sleepDuration)
+        #expect(converted.steps == original.steps)
+        #expect(converted.activeCalories == original.activeCalories)
+    }
+}

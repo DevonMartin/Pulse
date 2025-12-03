@@ -13,28 +13,40 @@ struct PulseApp: App {
 
     // MARK: - Dependencies
 
-    /// The app's dependency container, created once at launch.
-    @State private var container = AppContainer()
-
     /// SwiftData model container for persistence.
-    private var sharedModelContainer: ModelContainer = {
+    private let sharedModelContainer: ModelContainer
+
+    /// The app's dependency container, created once at launch.
+    @State private var container: AppContainer
+
+    // MARK: - Initialization
+
+    init() {
+        // Create the SwiftData schema with our entities
         let schema = Schema([
-            Item.self,
+            CheckInEntity.self,
+            HealthSnapshotEntity.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .none  // Temporarily disabled until schema is stable
+        )
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            self.sharedModelContainer = modelContainer
+            self._container = State(initialValue: AppContainer(modelContainer: modelContainer))
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
-    }()
+    }
 
     // MARK: - Body
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            DashboardView()
                 .environment(container)
         }
         .modelContainer(sharedModelContainer)
