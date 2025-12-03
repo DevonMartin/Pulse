@@ -29,6 +29,8 @@ final class MockHealthKitService: HealthKitServiceProtocol {
 
     /// The metrics to return from fetchMetrics(). If nil, returns realistic sample data.
     var mockMetrics: HealthMetrics?
+	
+	var simulatedDelay: Double = 0
 
     /// Tracks whether requestAuthorization() was called (useful for tests)
     private(set) var requestAuthorizationCallCount = 0
@@ -57,7 +59,7 @@ final class MockHealthKitService: HealthKitServiceProtocol {
 
     func fetchMetrics(for date: Date) async throws -> HealthMetrics {
         fetchMetricsDates.append(date)
-		try await Task.sleep(nanoseconds: 100_000_000)
+		try await Task.sleep(for: .seconds(simulatedDelay))
 
         // Return custom mock data if set, otherwise return realistic sample data
         if let mockMetrics = mockMetrics {
