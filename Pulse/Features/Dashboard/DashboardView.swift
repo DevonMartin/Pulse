@@ -20,6 +20,7 @@ struct DashboardView: View {
     @State private var todaysCheckIn: CheckIn?
     @State private var todaysMetrics: HealthMetrics?
     @State private var readinessScore: ReadinessScore?
+    @State private var tomorrowsPrediction: Prediction?
     @State private var isLoading = true
     @State private var showingCheckIn = false
     @State private var errorMessage: String?
@@ -31,6 +32,11 @@ struct DashboardView: View {
                     // Readiness score card (shown when we have a score)
                     if let score = readinessScore {
                         ReadinessScoreCard(score: score)
+                    }
+
+                    // Tomorrow's prediction card
+                    if let prediction = tomorrowsPrediction {
+                        TomorrowPredictionCard(prediction: prediction)
                     }
 
                     // Check-in status card
@@ -94,6 +100,9 @@ struct DashboardView: View {
         // Calculate readiness score from loaded data and save it
         await calculateAndSaveReadinessScore()
 
+        // Generate or refresh tomorrow's prediction
+        await generateTomorrowsPrediction()
+
         isLoading = false
     }
 
@@ -129,6 +138,19 @@ struct DashboardView: View {
             todaysMetrics = try await container.healthKitService.fetchMetrics(for: Date())
         } catch {
             print("Failed to load today's metrics: \(error)")
+        }
+    }
+
+    private func generateTomorrowsPrediction() async {
+        do {
+            // Try to create a prediction based on today's data
+            tomorrowsPrediction = try await container.predictionService.createPrediction(
+                metrics: todaysMetrics,
+                energyLevel: todaysCheckIn?.energyLevel,
+                todayScore: readinessScore?.score
+            )
+        } catch {
+            print("Failed to generate prediction: \(error)")
         }
     }
 }
@@ -299,6 +321,119 @@ private struct ConfidenceBadge: View {
         case .partial: return .orange
         case .limited: return .red
         }
+    }
+}
+
+// MARK: - Tomorrow's Prediction Card
+
+/// Displays tomorrow's predicted readiness score.
+private struct TomorrowPredictionCard: View {
+    let prediction: Prediction
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Header
+            HStack {
+                Label("Tomorrow's Forecast", systemImage: "sparkles")
+                    .font(.headline)
+                    .foregroundStyle(.purple)
+
+                Spacer()
+
+                ConfidenceBadge(confidence: prediction.confidence)
+            }
+
+            // Prediction display
+            HStack(spacing: 20) {
+                // Predicted score
+                VStack(spacing: 4) {
+                    Text("\(prediction.predictedScore)")
+                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .foregroundStyle(scoreColor)
+                        .contentTransition(.numericText())
+
+                    Text(prediction.scoreDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // Visual indicator
+                VStack(alignment: .trailing, spacing: 8) {
+                    HStack(spacing: 4) {
+                        Image(systemName: trendIcon)
+                            .foregroundStyle(scoreColor)
+                        Text(trendText)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+
+                    Text(sourceLabel)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            // Explanation
+            Text(explanationText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+        }
+        .padding()
+        .background(
+            LinearGradient(
+                colors: [Color.purple.opacity(0.1), Color.purple.opacity(0.05)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var scoreColor: Color {
+        switch prediction.predictedScore {
+        case 0...40: return .red
+        case 41...60: return .orange
+        case 61...80: return .green
+        case 81...100: return .mint
+        default: return .gray
+        }
+    }
+
+    private var trendIcon: String {
+        switch prediction.predictedScore {
+        case 0...40: return "arrow.down.circle.fill"
+        case 41...55: return "minus.circle.fill"
+        case 56...75: return "equal.circle.fill"
+        case 76...100: return "arrow.up.circle.fill"
+        default: return "questionmark.circle.fill"
+        }
+    }
+
+    private var trendText: String {
+        switch prediction.predictedScore {
+        case 0...40: return "Rest day ahead"
+        case 41...55: return "Take it easy"
+        case 56...75: return "Moderate day"
+        case 76...100: return "Great day ahead"
+        default: return "Unknown"
+        }
+    }
+
+    private var sourceLabel: String {
+        switch prediction.source {
+        case .rules: return "Rules-based prediction"
+        case .blended: return "Hybrid prediction"
+        case .ml: return "Personalized ML"
+        }
+    }
+
+    private var explanationText: String {
+        "Based on today's sleep, HRV, activity, and energy levels"
     }
 }
 

@@ -38,6 +38,17 @@ final class AppContainer {
     /// The readiness score repository for historical data
     let readinessScoreRepository: ReadinessScoreRepositoryProtocol
 
+    /// The prediction repository for storing and retrieving predictions
+    let predictionRepository: PredictionRepositoryProtocol
+
+    // MARK: - Prediction
+
+    /// The prediction engine for generating tomorrow's readiness predictions
+    let predictionEngine: PredictionEngineProtocol
+
+    /// The prediction service for coordinating predictions and accuracy tracking
+    let predictionService: PredictionServiceProtocol
+
     // MARK: - Environment Detection
 
     /// Returns true if running in the iOS Simulator
@@ -75,6 +86,14 @@ final class AppContainer {
         // Create repositories with the model container
         self.checkInRepository = CheckInRepository(modelContainer: modelContainer)
         self.readinessScoreRepository = ReadinessScoreRepository(modelContainer: modelContainer)
+        self.predictionRepository = PredictionRepository(modelContainer: modelContainer)
+
+        // Create prediction components
+        self.predictionEngine = PredictionEngine()
+        self.predictionService = PredictionService(
+            engine: predictionEngine,
+            repository: predictionRepository
+        )
     }
 
     // MARK: - Sample Data
@@ -97,6 +116,12 @@ final class AppContainer {
         let sampleScores = Self.generateSampleScores()
         for score in sampleScores {
             try? await readinessScoreRepository.save(score)
+        }
+
+        // Generate and save sample predictions
+        let samplePredictions = Self.generateSamplePredictions(basedOn: sampleScores)
+        for prediction in samplePredictions {
+            try? await predictionRepository.save(prediction)
         }
 
         UserDefaults.standard.set(true, forKey: key)
@@ -181,16 +206,71 @@ final class AppContainer {
         }
     }
 
+    /// Generates sample predictions based on actual scores for realistic accuracy tracking
+    private static func generateSamplePredictions(basedOn scores: [ReadinessScore]) -> [Prediction] {
+        let calendar = Calendar.current
+
+        return scores.compactMap { score -> Prediction? in
+            let targetDate = score.date
+            guard let createdAt = calendar.date(byAdding: .day, value: -1, to: targetDate) else {
+                return nil
+            }
+
+            // Create a prediction that was made the day before
+            // Add some realistic error to make accuracy tracking interesting
+            let error = Int.random(in: -12...12)
+            let predictedScore = max(0, min(100, score.score + error))
+
+            let confidence: ReadinessConfidence = {
+                let roll = Int.random(in: 1...10)
+                if roll <= 6 { return .full }
+                if roll <= 9 { return .partial }
+                return .limited
+            }()
+
+            // Create input metrics (what was available when prediction was made)
+            let inputMetrics = HealthMetrics(
+                date: createdAt,
+                restingHeartRate: Double.random(in: 52...72),
+                hrv: Double.random(in: 25...75),
+                sleepDuration: TimeInterval.random(in: 5*3600...9*3600),
+                steps: Int.random(in: 3000...15000)
+            )
+
+            return Prediction(
+                createdAt: createdAt,
+                targetDate: targetDate,
+                predictedScore: predictedScore,
+                confidence: confidence,
+                source: .rules,
+                inputMetrics: inputMetrics,
+                inputEnergyLevel: Int.random(in: 2...5),
+                actualScore: score.score,
+                actualScoreRecordedAt: targetDate
+            )
+        }
+    }
+
     /// Creates a container with custom dependencies (for testing/previews).
     init(
         healthKitService: HealthKitServiceProtocol,
         readinessCalculator: ReadinessCalculatorProtocol = ReadinessCalculator(),
         checkInRepository: CheckInRepositoryProtocol? = nil,
-        readinessScoreRepository: ReadinessScoreRepositoryProtocol? = nil
+        readinessScoreRepository: ReadinessScoreRepositoryProtocol? = nil,
+        predictionRepository: PredictionRepositoryProtocol? = nil,
+        predictionEngine: PredictionEngineProtocol? = nil,
+        predictionService: PredictionServiceProtocol? = nil
     ) {
         self.healthKitService = healthKitService
         self.readinessCalculator = readinessCalculator
         self.checkInRepository = checkInRepository ?? MockCheckInRepository()
         self.readinessScoreRepository = readinessScoreRepository ?? MockReadinessScoreRepository()
+
+        let repo = predictionRepository ?? MockPredictionRepository(withSampleData: true)
+        let engine = predictionEngine ?? MockPredictionEngine()
+
+        self.predictionRepository = repo
+        self.predictionEngine = engine
+        self.predictionService = predictionService ?? MockPredictionService(withSamplePredictions: true)
     }
 }

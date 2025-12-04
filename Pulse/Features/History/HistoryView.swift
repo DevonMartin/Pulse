@@ -32,6 +32,7 @@ enum TimeRange: String, CaseIterable, Identifiable {
 /// The section currently being viewed in history.
 enum HistorySection: String, CaseIterable, Identifiable {
     case trends = "Trends"
+    case predictions = "Predictions"
     case checkIns = "Check-ins"
 
     var id: String { rawValue }
@@ -45,6 +46,7 @@ struct HistoryView: View {
     @State private var selectedSection: HistorySection = .trends
     @State private var scores: [ReadinessScore] = []
     @State private var checkIns: [CheckIn] = []
+    @State private var predictions: [Prediction] = []
     @State private var isLoading = true
 
     var body: some View {
@@ -86,6 +88,20 @@ struct HistoryView: View {
                             )
                         } else {
                             TrendsChartView(scores: scores, timeRange: selectedTimeRange)
+                        }
+
+                    case .predictions:
+                        if predictions.isEmpty {
+                            emptyState(
+                                icon: "sparkles",
+                                title: "No Predictions Yet",
+                                message: "Complete check-ins to start building predictions and tracking accuracy."
+                            )
+                        } else {
+                            PredictionAccuracyView(
+                                predictions: predictions,
+                                timeRange: selectedTimeRange
+                            )
                         }
 
                     case .checkIns:
@@ -141,16 +157,18 @@ struct HistoryView: View {
 
     private func loadData() async {
         // Only show loading indicator on first load (when data is empty)
-        let showLoading = scores.isEmpty && checkIns.isEmpty
+        let showLoading = scores.isEmpty && checkIns.isEmpty && predictions.isEmpty
         if showLoading {
             isLoading = true
         }
 
         async let scoresTask: () = loadScores()
         async let checkInsTask: () = loadCheckIns()
+        async let predictionsTask: () = loadPredictions()
 
         await scoresTask
         await checkInsTask
+        await predictionsTask
 
         isLoading = false
     }
@@ -160,6 +178,7 @@ struct HistoryView: View {
         // Fetch the new data
         let newScores: [ReadinessScore]
         let newCheckIns: [CheckIn]
+        let newPredictions: [Prediction]
 
         do {
             async let scoresResult = container.readinessScoreRepository.getScores(
@@ -170,9 +189,13 @@ struct HistoryView: View {
                 from: selectedTimeRange.startDate,
                 to: Date()
             )
+            async let predictionsResult = container.predictionService.getRecentPredictions(
+                days: selectedTimeRange == .week ? 7 : (selectedTimeRange == .month ? 30 : 365)
+            )
 
             newScores = try await scoresResult
             newCheckIns = try await checkInsResult
+            newPredictions = try await predictionsResult
         } catch {
             print("Failed to load data: \(error)")
             return
@@ -182,6 +205,7 @@ struct HistoryView: View {
         withAnimation(.easeInOut(duration: 0.3)) {
             scores = newScores
             checkIns = newCheckIns
+            predictions = newPredictions
         }
     }
 
@@ -206,6 +230,16 @@ struct HistoryView: View {
         } catch {
             print("Failed to load check-ins: \(error)")
             checkIns = []
+        }
+    }
+
+    private func loadPredictions() async {
+        do {
+            let days = selectedTimeRange == .week ? 7 : (selectedTimeRange == .month ? 30 : 365)
+            predictions = try await container.predictionService.getRecentPredictions(days: days)
+        } catch {
+            print("Failed to load predictions: \(error)")
+            predictions = []
         }
     }
 }

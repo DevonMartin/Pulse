@@ -27,6 +27,7 @@ struct PulseApp: App {
             CheckInEntity.self,
             HealthSnapshotEntity.self,
             ReadinessScoreEntity.self,
+            PredictionEntity.self,
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
