@@ -91,17 +91,29 @@ struct DashboardView: View {
         await checkInTask
         await metricsTask
 
-        // Calculate readiness score from loaded data
-        calculateReadinessScore()
+        // Calculate readiness score from loaded data and save it
+        await calculateAndSaveReadinessScore()
 
         isLoading = false
     }
 
-    private func calculateReadinessScore() {
-        readinessScore = container.readinessCalculator.calculate(
+    private func calculateAndSaveReadinessScore() async {
+        guard let score = container.readinessCalculator.calculate(
             from: todaysMetrics,
             energyLevel: todaysCheckIn?.energyLevel
-        )
+        ) else {
+            readinessScore = nil
+            return
+        }
+
+        readinessScore = score
+
+        // Save the score for historical tracking
+        do {
+            try await container.readinessScoreRepository.save(score)
+        } catch {
+            print("Failed to save readiness score: \(error)")
+        }
     }
 
     private func loadTodaysCheckIn() async {
@@ -412,8 +424,8 @@ private struct EnergyBadge: View {
         case 1: return .red
         case 2: return .orange
         case 3: return .yellow
-        case 4: return .mint
-        case 5: return .green
+        case 4: return .green
+        case 5: return .mint
         default: return .gray
         }
     }

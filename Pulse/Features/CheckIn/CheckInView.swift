@@ -176,14 +176,14 @@ private struct EnergyButton: View {
         .scaleEffect(isSelected ? 1.1 : 1.0)
     }
 
-    /// Color gradient from red (1) to green (5)
+    /// Color gradient from red (1) to mint (5)
     private var energyColor: Color {
         switch level {
         case 1: return .red
         case 2: return .orange
         case 3: return .yellow
-        case 4: return .mint
-        case 5: return .green
+        case 4: return .green
+        case 5: return .mint
         default: return .gray
         }
     }

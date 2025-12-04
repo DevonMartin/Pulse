@@ -47,8 +47,21 @@ struct PulseApp: App {
 
     var body: some Scene {
         WindowGroup {
-            DashboardView()
-                .environment(container)
+            TabView {
+                DashboardView()
+                    .tabItem {
+                        Label("Dashboard", systemImage: "heart.text.square")
+                    }
+
+                HistoryView()
+                    .tabItem {
+                        Label("History", systemImage: "chart.line.uptrend.xyaxis")
+                    }
+            }
+            .environment(container)
+            .task {
+                await container.populateSampleDataIfNeeded()
+            }
         }
         .modelContainer(sharedModelContainer)
     }

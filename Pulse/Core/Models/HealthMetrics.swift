@@ -9,7 +9,7 @@ import Foundation
 
 /// A snapshot of health metrics for a specific date.
 /// This is a domain model - pure Swift struct with no framework dependencies.
-struct HealthMetrics: Equatable, Sendable {
+struct HealthMetrics: Sendable {
     /// The date these metrics are for (typically "today" or "yesterday")
     let date: Date
 
@@ -49,6 +49,19 @@ struct HealthMetrics: Equatable, Sendable {
 		self.steps = steps
 		self.activeCalories = activeCalories
 	}
+}
+
+// MARK: - Equatable
+
+extension HealthMetrics: Equatable {
+    nonisolated static func == (lhs: HealthMetrics, rhs: HealthMetrics) -> Bool {
+        lhs.date == rhs.date &&
+        lhs.restingHeartRate == rhs.restingHeartRate &&
+        lhs.hrv == rhs.hrv &&
+        lhs.sleepDuration == rhs.sleepDuration &&
+        lhs.steps == rhs.steps &&
+        lhs.activeCalories == rhs.activeCalories
+    }
 }
 
 // MARK: - Convenience

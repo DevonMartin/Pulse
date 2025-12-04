@@ -150,6 +150,51 @@ actor MockCheckInRepository: CheckInRepositoryProtocol {
     var saveCallCount = 0
     var shouldThrowError: Error?
 
+    /// Creates a mock repository, optionally pre-populated with sample data
+    init(withSampleData: Bool = false) {
+        if withSampleData {
+            checkIns = Self.generateSampleCheckIns()
+        }
+    }
+
+    /// Generates sample historical check-ins for the past 14 days
+    private static func generateSampleCheckIns() -> [CheckIn] {
+        let calendar = Calendar.current
+        let today = Date()
+
+        return (1..<14).compactMap { daysAgo -> CheckIn? in
+            guard let date = calendar.date(byAdding: .day, value: -daysAgo, to: today) else {
+                return nil
+            }
+
+            // Set time to morning (around 7-9 AM)
+            let hour = Int.random(in: 7...9)
+            let minute = Int.random(in: 0...59)
+            guard let timestamp = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: date) else {
+                return nil
+            }
+
+            let energyLevel = Int.random(in: 2...5)
+
+            // Create health snapshot for some check-ins
+            let healthSnapshot: HealthMetrics? = Bool.random() ? HealthMetrics(
+                date: date,
+                restingHeartRate: Double.random(in: 52...72),
+                hrv: Double.random(in: 25...75),
+                sleepDuration: TimeInterval.random(in: 5*3600...9*3600),
+                steps: Int.random(in: 3000...15000),
+                activeCalories: Double.random(in: 150...650)
+            ) : nil
+
+            return CheckIn(
+                timestamp: timestamp,
+                type: .morning,
+                energyLevel: energyLevel,
+                healthSnapshot: healthSnapshot
+            )
+        }
+    }
+
     func save(_ checkIn: CheckIn) async throws {
         saveCallCount += 1
         if let error = shouldThrowError {

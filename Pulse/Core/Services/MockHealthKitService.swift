@@ -29,14 +29,24 @@ final class MockHealthKitService: HealthKitServiceProtocol {
 
     /// The metrics to return from fetchMetrics(). If nil, returns realistic sample data.
     var mockMetrics: HealthMetrics?
-	
-	var simulatedDelay: Double = 0
+
+    var simulatedDelay: Double = 0
 
     /// Tracks whether requestAuthorization() was called (useful for tests)
     private(set) var requestAuthorizationCallCount = 0
 
     /// Tracks the dates passed to fetchMetrics() (useful for tests)
     private(set) var fetchMetricsDates: [Date] = []
+
+    /// Cache of generated metrics by date to prevent re-randomizing on refresh
+    private var cachedMetrics: [String: HealthMetrics] = [:]
+
+    /// Date formatter for cache keys
+    private static let cacheDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     // MARK: - HealthKitServiceProtocol
 
@@ -59,15 +69,28 @@ final class MockHealthKitService: HealthKitServiceProtocol {
 
     func fetchMetrics(for date: Date) async throws -> HealthMetrics {
         fetchMetricsDates.append(date)
-		try await Task.sleep(for: .seconds(simulatedDelay))
+        try await Task.sleep(for: .seconds(simulatedDelay))
 
-        // Return custom mock data if set, otherwise return realistic sample data
+        // Return custom mock data if set
         if let mockMetrics = mockMetrics {
             return mockMetrics
         }
 
-        // Generate realistic sample data for development
-        return Self.sampleMetrics(for: date)
+        // Check cache first to prevent re-randomizing on refresh
+        let cacheKey = Self.cacheDateFormatter.string(from: date)
+        if let cached = cachedMetrics[cacheKey] {
+            return cached
+        }
+
+        // Generate and cache realistic sample data for development
+        let metrics = Self.sampleMetrics(for: date)
+        cachedMetrics[cacheKey] = metrics
+        return metrics
+    }
+
+    /// Clears the cached metrics (useful for testing)
+    func clearCache() {
+        cachedMetrics.removeAll()
     }
 
     // MARK: - Sample Data

@@ -12,7 +12,7 @@ import Foundation
 /// This is a pure Swift struct used throughout the app layer.
 /// It's independent of SwiftData/persistence concerns.
 /// The repository layer handles conversion to/from CheckInEntity.
-struct CheckIn: Identifiable, Equatable, Sendable {
+struct CheckIn: Identifiable, Sendable {
     let id: UUID
     let timestamp: Date
     let type: CheckInType
@@ -31,6 +31,18 @@ struct CheckIn: Identifiable, Equatable, Sendable {
         self.type = type
         self.energyLevel = energyLevel
         self.healthSnapshot = healthSnapshot
+    }
+}
+
+// MARK: - Equatable
+
+extension CheckIn: Equatable {
+    nonisolated static func == (lhs: CheckIn, rhs: CheckIn) -> Bool {
+        lhs.id == rhs.id &&
+        lhs.timestamp == rhs.timestamp &&
+        lhs.type == rhs.type &&
+        lhs.energyLevel == rhs.energyLevel &&
+        lhs.healthSnapshot == rhs.healthSnapshot
     }
 }
 
