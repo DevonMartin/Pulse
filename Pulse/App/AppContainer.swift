@@ -27,6 +27,9 @@ final class AppContainer {
     /// The health data service. Uses mock in simulator, real HealthKit on device.
     let healthKitService: HealthKitServiceProtocol
 
+    /// The readiness score calculator
+    let readinessCalculator: ReadinessCalculatorProtocol
+
     // MARK: - Repositories
 
     /// The check-in data repository
@@ -63,6 +66,9 @@ final class AppContainer {
             self.healthKitService = mock
         }
 
+        // Create the readiness calculator
+        self.readinessCalculator = ReadinessCalculator()
+
         // Create repository with the model container
         self.checkInRepository = CheckInRepository(modelContainer: modelContainer)
     }
@@ -70,9 +76,11 @@ final class AppContainer {
     /// Creates a container with custom dependencies (for testing/previews).
     init(
         healthKitService: HealthKitServiceProtocol,
+        readinessCalculator: ReadinessCalculatorProtocol = ReadinessCalculator(),
         checkInRepository: CheckInRepositoryProtocol? = nil
     ) {
         self.healthKitService = healthKitService
+        self.readinessCalculator = readinessCalculator
         self.checkInRepository = checkInRepository ?? MockCheckInRepository()
     }
 }

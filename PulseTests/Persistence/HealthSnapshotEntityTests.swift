@@ -9,6 +9,7 @@ import Testing
 @testable import Pulse
 import Foundation
 
+@MainActor
 struct HealthSnapshotEntityTests {
 
     // MARK: - Initialization from HealthMetrics

@@ -9,12 +9,13 @@ import Testing
 @testable import Pulse
 import Foundation
 
+@MainActor
 struct MockHealthKitServiceTests {
 
     // MARK: - Authorization Status Tests
 
     @Test func initialStatusIsNotDetermined() async {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
 
         let status = await service.authorizationStatus
 
@@ -22,7 +23,7 @@ struct MockHealthKitServiceTests {
     }
 
     @Test func mockStatusCanBeConfiguredToDenied() async {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         await MainActor.run {
             service.mockAuthorizationStatus = .denied
         }
@@ -33,7 +34,7 @@ struct MockHealthKitServiceTests {
     }
 
     @Test func mockStatusCanBeConfiguredToAuthorized() async {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         await MainActor.run {
             service.mockAuthorizationStatus = .authorized
         }
@@ -44,7 +45,7 @@ struct MockHealthKitServiceTests {
     }
 
     @Test func mockStatusCanBeConfiguredToUnavailable() async {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         await MainActor.run {
             service.mockAuthorizationStatus = .unavailable
         }
@@ -57,7 +58,7 @@ struct MockHealthKitServiceTests {
     // MARK: - Request Authorization Tests
 
     @Test func requestAuthorizationUpdatesStatusToAuthorized() async throws {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
 
         try await service.requestAuthorization()
 
@@ -66,17 +67,17 @@ struct MockHealthKitServiceTests {
     }
 
     @Test func requestAuthorizationIncrementsCallCount() async throws {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
 
         try await service.requestAuthorization()
         try await service.requestAuthorization()
         try await service.requestAuthorization()
 
-        #expect(await service.requestAuthorizationCallCount == 3)
+        #expect(service.requestAuthorizationCallCount == 3)
     }
 
     @Test func requestAuthorizationThrowsConfiguredError() async {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         let expectedError = NSError(domain: "TestError", code: 42)
         await MainActor.run {
             service.authorizationError = expectedError
@@ -92,7 +93,7 @@ struct MockHealthKitServiceTests {
     }
 
     @Test func requestAuthorizationDoesNotChangeStatusWhenErrorConfigured() async {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         await MainActor.run {
             service.authorizationError = NSError(domain: "Test", code: 1)
         }
@@ -110,7 +111,7 @@ struct MockHealthKitServiceTests {
     // MARK: - Fetch Metrics Tests
 
     @Test func fetchMetricsReturnsSampleDataByDefault() async throws {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         let today = Date()
 
         let metrics = try await service.fetchMetrics(for: today)
@@ -125,7 +126,7 @@ struct MockHealthKitServiceTests {
     }
 
     @Test func fetchMetricsReturnsConfiguredMockData() async throws {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         let testDate = Date()
         let customMetrics = HealthMetrics(
             date: testDate,
@@ -149,19 +150,19 @@ struct MockHealthKitServiceTests {
     }
 
     @Test func fetchMetricsTracksCalledDates() async throws {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         let date1 = Date()
         let date2 = Calendar.current.date(byAdding: .day, value: -1, to: date1)!
 
         _ = try await service.fetchMetrics(for: date1)
         _ = try await service.fetchMetrics(for: date2)
 
-        let dates = await service.fetchMetricsDates
+        let dates = service.fetchMetricsDates
         #expect(dates.count == 2)
     }
 
     @Test func fetchMetricsUsesCorrectDateInReturnedMetrics() async throws {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
 
         let metrics = try await service.fetchMetrics(for: yesterday)
@@ -170,7 +171,7 @@ struct MockHealthKitServiceTests {
     }
 
     @Test func fetchMetricsReturnsEmptyMetricsWhenConfigured() async throws {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         let emptyMetrics = HealthMetrics(
             date: Date(),
             restingHeartRate: nil,
@@ -191,7 +192,7 @@ struct MockHealthKitServiceTests {
     // MARK: - Simulated Delay Tests
 
     @Test func fetchMetricsRespectsSimulatedDelay() async throws {
-        let service = await MockHealthKitService()
+        let service = MockHealthKitService()
         await MainActor.run {
 		    service.simulatedDelay = 0.1 // 100ms
         }

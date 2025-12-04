@@ -9,6 +9,7 @@ import Testing
 @testable import Pulse
 import Foundation
 
+@MainActor
 struct CheckInTests {
 
     // MARK: - Initialization
@@ -164,6 +165,7 @@ struct CheckInTests {
 
 // MARK: - CheckInType Tests
 
+@MainActor
 struct CheckInTypeTests {
 
     @Test func morningRawValueIsCorrect() {

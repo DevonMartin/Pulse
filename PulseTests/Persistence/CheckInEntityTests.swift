@@ -9,6 +9,7 @@ import Testing
 @testable import Pulse
 import Foundation
 
+@MainActor
 struct CheckInEntityTests {
 
     // MARK: - Initialization

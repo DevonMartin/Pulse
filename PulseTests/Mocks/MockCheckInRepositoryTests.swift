@@ -9,33 +9,34 @@ import Testing
 @testable import Pulse
 import Foundation
 
+@MainActor
 struct MockCheckInRepositoryTests {
 
     // MARK: - Save Tests
 
     @Test func saveAddsCheckInToList() async throws {
-        let repository = await MockCheckInRepository()
-        let checkIn = await CheckIn(type: .morning, energyLevel: 4)
+        let repository = MockCheckInRepository()
+        let checkIn = CheckIn(type: .morning, energyLevel: 4)
 
         try await repository.save(checkIn)
 
-        let checkIns = await repository.checkIns
+		let checkIns = await repository.checkIns
         #expect(checkIns.count == 1)
         #expect(checkIns.first?.energyLevel == 4)
     }
 
     @Test func saveIncrementsCallCount() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
 
         try await repository.save(CheckIn(type: .morning, energyLevel: 3))
         try await repository.save(CheckIn(type: .morning, energyLevel: 4))
 
-        let callCount = await repository.saveCallCount
+		let callCount = await repository.saveCallCount
         #expect(callCount == 2)
     }
 
     @Test func saveThrowsConfiguredError() async {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         let expectedError = NSError(domain: "TestError", code: 123)
         await repository.setError(expectedError)
 
@@ -48,7 +49,7 @@ struct MockCheckInRepositoryTests {
     }
 
     @Test func savePreservesCheckInProperties() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         let id = UUID()
         let timestamp = Date()
         let snapshot = HealthMetrics(
@@ -59,7 +60,7 @@ struct MockCheckInRepositoryTests {
             steps: 8000,
             activeCalories: 350
         )
-        let checkIn = await CheckIn(
+        let checkIn = CheckIn(
             id: id,
             timestamp: timestamp,
             type: .evening,
@@ -69,7 +70,7 @@ struct MockCheckInRepositoryTests {
 
         try await repository.save(checkIn)
 
-        let saved = await repository.checkIns.first
+		let saved = await repository.checkIns.first
         #expect(saved?.id == id)
         #expect(saved?.type == .evening)
         #expect(saved?.energyLevel == 5)
@@ -79,8 +80,8 @@ struct MockCheckInRepositoryTests {
     // MARK: - Get Today's CheckIn Tests
 
     @Test func getTodaysCheckInReturnsMorningCheckIn() async throws {
-        let repository = await MockCheckInRepository()
-        let checkIn = await CheckIn(type: .morning, energyLevel: 5)
+        let repository = MockCheckInRepository()
+        let checkIn = CheckIn(type: .morning, energyLevel: 5)
         try await repository.save(checkIn)
 
         let result = try await repository.getTodaysCheckIn(type: .morning)
@@ -90,8 +91,8 @@ struct MockCheckInRepositoryTests {
     }
 
     @Test func getTodaysCheckInReturnsNilForDifferentType() async throws {
-        let repository = await MockCheckInRepository()
-        let checkIn = await CheckIn(type: .morning, energyLevel: 5)
+        let repository = MockCheckInRepository()
+        let checkIn = CheckIn(type: .morning, energyLevel: 5)
         try await repository.save(checkIn)
 
         let result = try await repository.getTodaysCheckIn(type: .evening)
@@ -100,9 +101,9 @@ struct MockCheckInRepositoryTests {
     }
 
     @Test func getTodaysCheckInReturnsNilForYesterdaysCheckIn() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-        let checkIn = await CheckIn(timestamp: yesterday, type: .morning, energyLevel: 4)
+        let checkIn = CheckIn(timestamp: yesterday, type: .morning, energyLevel: 4)
         try await repository.save(checkIn)
 
         let result = try await repository.getTodaysCheckIn(type: .morning)
@@ -111,7 +112,7 @@ struct MockCheckInRepositoryTests {
     }
 
     @Test func getTodaysCheckInReturnsNilWhenEmpty() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
 
         let result = try await repository.getTodaysCheckIn(type: .morning)
 
@@ -119,7 +120,7 @@ struct MockCheckInRepositoryTests {
     }
 
     @Test func getTodaysCheckInThrowsConfiguredError() async {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         await repository.setError(NSError(domain: "Test", code: 1))
 
         do {
@@ -133,7 +134,7 @@ struct MockCheckInRepositoryTests {
     // MARK: - Get CheckIns in Range Tests
 
     @Test func getCheckInsReturnsCheckInsInRange() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         let today = Date()
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today)!
         let twoDaysAgo = Calendar.current.date(byAdding: .day, value: -2, to: today)!
@@ -148,7 +149,7 @@ struct MockCheckInRepositoryTests {
     }
 
     @Test func getCheckInsReturnsSortedByTimestampDescending() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         let today = Date()
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today)!
 
@@ -164,12 +165,12 @@ struct MockCheckInRepositoryTests {
     // MARK: - Get Recent CheckIns Tests
 
     @Test func getRecentCheckInsRespectsLimit() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
 
         // Add 5 check-ins
         for i in 1...5 {
             let date = Calendar.current.date(byAdding: .hour, value: -i, to: Date())!
-            let checkIn = await CheckIn(timestamp: date, type: .morning, energyLevel: i)
+            let checkIn = CheckIn(timestamp: date, type: .morning, energyLevel: i)
             try await repository.save(checkIn)
         }
 
@@ -179,7 +180,7 @@ struct MockCheckInRepositoryTests {
     }
 
     @Test func getRecentCheckInsReturnsAllWhenLimitExceedsCount() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         try await repository.save(CheckIn(type: .morning, energyLevel: 3))
         try await repository.save(CheckIn(type: .morning, energyLevel: 4))
 
@@ -189,7 +190,7 @@ struct MockCheckInRepositoryTests {
     }
 
     @Test func getRecentCheckInsReturnsMostRecentFirst() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         let older = Calendar.current.date(byAdding: .hour, value: -2, to: Date())!
         let newer = Calendar.current.date(byAdding: .hour, value: -1, to: Date())!
 
@@ -204,43 +205,43 @@ struct MockCheckInRepositoryTests {
     // MARK: - Delete Tests
 
     @Test func deleteRemovesCheckIn() async throws {
-        let repository = await MockCheckInRepository()
-        let checkIn = await CheckIn(type: .morning, energyLevel: 3)
+        let repository = MockCheckInRepository()
+        let checkIn = CheckIn(type: .morning, energyLevel: 3)
         try await repository.save(checkIn)
 
         try await repository.delete(id: checkIn.id)
 
-        let checkIns = await repository.checkIns
+		let checkIns = await repository.checkIns
         #expect(checkIns.isEmpty)
     }
 
     @Test func deleteOnlyRemovesMatchingId() async throws {
-        let repository = await MockCheckInRepository()
-        let checkIn1 = await CheckIn(type: .morning, energyLevel: 3)
-        let checkIn2 = await CheckIn(type: .morning, energyLevel: 4)
+        let repository = MockCheckInRepository()
+        let checkIn1 = CheckIn(type: .morning, energyLevel: 3)
+        let checkIn2 = CheckIn(type: .morning, energyLevel: 4)
         try await repository.save(checkIn1)
         try await repository.save(checkIn2)
 
         try await repository.delete(id: checkIn1.id)
 
-        let checkIns = await repository.checkIns
+		let checkIns = await repository.checkIns
         #expect(checkIns.count == 1)
         #expect(checkIns.first?.id == checkIn2.id)
     }
 
     @Test func deleteDoesNothingForNonExistentId() async throws {
-        let repository = await MockCheckInRepository()
-        let checkIn = await CheckIn(type: .morning, energyLevel: 3)
+        let repository = MockCheckInRepository()
+        let checkIn = CheckIn(type: .morning, energyLevel: 3)
         try await repository.save(checkIn)
 
         try await repository.delete(id: UUID()) // Different ID
 
-        let checkIns = await repository.checkIns
+		let checkIns = await repository.checkIns
         #expect(checkIns.count == 1)
     }
 
     @Test func deleteThrowsConfiguredError() async {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         await repository.setError(NSError(domain: "Test", code: 1))
 
         do {
@@ -254,14 +255,14 @@ struct MockCheckInRepositoryTests {
     // MARK: - Reset Tests
 
     @Test func resetClearsAllState() async throws {
-        let repository = await MockCheckInRepository()
+        let repository = MockCheckInRepository()
         try await repository.save(CheckIn(type: .morning, energyLevel: 3))
         await repository.setError(NSError(domain: "Test", code: 1))
 
         await repository.reset()
 
-        let checkIns = await repository.checkIns
-        let saveCount = await repository.saveCallCount
+		let checkIns = await repository.checkIns
+		let saveCount = await repository.saveCallCount
         #expect(checkIns.isEmpty)
         #expect(saveCount == 0)
     }

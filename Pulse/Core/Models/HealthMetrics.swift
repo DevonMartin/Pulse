@@ -33,6 +33,22 @@ struct HealthMetrics: Equatable, Sendable {
     /// Active energy burned in kilocalories.
     /// Nil if no data available for this date.
     let activeCalories: Double?
+	
+	init(
+		date: Date,
+		restingHeartRate: Double? = nil,
+		hrv: Double? = nil,
+		sleepDuration: TimeInterval? = nil,
+		steps: Int? = nil,
+		activeCalories: Double? = nil
+	) {
+		self.date = date
+		self.restingHeartRate = restingHeartRate
+		self.hrv = hrv
+		self.sleepDuration = sleepDuration
+		self.steps = steps
+		self.activeCalories = activeCalories
+	}
 }
 
 // MARK: - Convenience

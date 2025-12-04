@@ -19,6 +19,7 @@ struct DashboardView: View {
 
     @State private var todaysCheckIn: CheckIn?
     @State private var todaysMetrics: HealthMetrics?
+    @State private var readinessScore: ReadinessScore?
     @State private var isLoading = true
     @State private var showingCheckIn = false
     @State private var errorMessage: String?
@@ -27,6 +28,11 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    // Readiness score card (shown when we have a score)
+                    if let score = readinessScore {
+                        ReadinessScoreCard(score: score)
+                    }
+
                     // Check-in status card
                     CheckInStatusCard(
                         checkIn: todaysCheckIn,
@@ -49,15 +55,8 @@ struct DashboardView: View {
                 .animation(.easeInOut(duration: 0.3), value: isLoading)
             }
             .navigationTitle("Dashboard")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        Task { await loadData() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(isLoading)
-                }
+            .refreshable {
+                await loadData()
             }
             .sheet(isPresented: $showingCheckIn) {
                 CheckInView {
@@ -83,17 +82,26 @@ struct DashboardView: View {
     }
 
     private func loadData() async {
-        isLoading = true
         errorMessage = nil
 
         // Load check-in and metrics concurrently
-		async let checkInTask: () = loadTodaysCheckIn()
-		async let metricsTask: () = loadTodaysMetrics()
+        async let checkInTask: () = loadTodaysCheckIn()
+        async let metricsTask: () = loadTodaysMetrics()
 
         await checkInTask
         await metricsTask
 
+        // Calculate readiness score from loaded data
+        calculateReadinessScore()
+
         isLoading = false
+    }
+
+    private func calculateReadinessScore() {
+        readinessScore = container.readinessCalculator.calculate(
+            from: todaysMetrics,
+            energyLevel: todaysCheckIn?.energyLevel
+        )
     }
 
     private func loadTodaysCheckIn() async {
@@ -109,6 +117,175 @@ struct DashboardView: View {
             todaysMetrics = try await container.healthKitService.fetchMetrics(for: Date())
         } catch {
             print("Failed to load today's metrics: \(error)")
+        }
+    }
+}
+
+// MARK: - Readiness Score Card
+
+/// Displays the calculated readiness score prominently.
+private struct ReadinessScoreCard: View {
+    let score: ReadinessScore
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Header with confidence badge
+            HStack {
+                Text("Today's Readiness")
+                    .font(.headline)
+
+                Spacer()
+
+                ConfidenceBadge(confidence: score.confidence)
+            }
+
+            // Main score display
+            HStack(alignment: .center, spacing: 24) {
+                // Score circle
+                ZStack {
+                    Circle()
+                        .stroke(scoreColor.opacity(0.2), lineWidth: 12)
+
+                    Circle()
+                        .trim(from: 0, to: CGFloat(score.score) / 100)
+                        .stroke(scoreColor, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+
+                    VStack(spacing: 2) {
+                        Text("\(score.score)")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .contentTransition(.numericText())
+
+                        Text(score.scoreDescription)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 120, height: 120)
+                .animation(.easeInOut(duration: 0.5), value: score.score)
+
+                // Breakdown
+                VStack(alignment: .leading, spacing: 8) {
+					BreakdownRow(
+						label: "Resting HR",
+						score: score.breakdown.restingHeartRateScore,
+						color: .red
+					)
+                    BreakdownRow(
+                        label: "HRV",
+                        score: score.breakdown.hrvScore,
+                        color: .pink
+                    )
+                    BreakdownRow(
+                        label: "Sleep",
+                        score: score.breakdown.sleepScore,
+                        color: .indigo
+                    )
+                    BreakdownRow(
+                        label: "Energy",
+                        score: score.breakdown.energyScore,
+                        color: .orange
+                    )
+                }
+            }
+
+            // Recommendation
+            Text(score.recommendation)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var scoreColor: Color {
+        switch score.score {
+        case 0...40: return .red
+        case 41...60: return .orange
+        case 61...80: return .green
+        case 81...100: return .mint
+        default: return .gray
+        }
+    }
+}
+
+/// Shows a single breakdown row with label and score bar.
+private struct BreakdownRow: View {
+    let label: String
+    let score: Int?
+    let color: Color
+
+    /// Computed property to track for animation
+    private var animatableScore: Int {
+        score ?? 0
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 70, alignment: .leading)
+
+            if let score = score {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(color.opacity(0.2))
+
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(color)
+                            .frame(width: geometry.size.width * CGFloat(score) / 100)
+                    }
+                }
+                .frame(height: 8)
+
+                Text("\(score)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, alignment: .trailing)
+                    .contentTransition(.numericText())
+            } else {
+                Text("--")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .animation(.easeInOut(duration: 0.5), value: animatableScore)
+    }
+}
+
+/// Badge showing the confidence level of the score.
+private struct ConfidenceBadge: View {
+    let confidence: ReadinessConfidence
+
+    var body: some View {
+        Text(label)
+            .font(.caption2)
+            .fontWeight(.medium)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(backgroundColor.opacity(0.2))
+            .foregroundStyle(backgroundColor)
+            .clipShape(Capsule())
+    }
+
+    private var label: String {
+        switch confidence {
+        case .full: return "Full Data"
+        case .partial: return "Partial Data"
+        case .limited: return "Limited Data"
+        }
+    }
+
+    private var backgroundColor: Color {
+        switch confidence {
+        case .full: return .green
+        case .partial: return .orange
+        case .limited: return .red
         }
     }
 }
