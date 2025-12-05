@@ -191,89 +191,142 @@ struct PredictionEngine: PredictionEngineProtocol, Sendable {
     // MARK: - Individual Impact Calculations
 
     /// Calculates sleep's impact on tomorrow's readiness.
-    /// - Poor sleep (< 6h): significant negative impact
-    /// - Good sleep (7-9h): slight positive or neutral
-    /// - Oversleep (> 10h): slight negative (can indicate issues)
+    /// More granular ranges for nuanced predictions.
     private func calculateSleepImpact(hours: Double) -> Double {
         switch hours {
-        case ..<4:
-            return -20.0 // Severe sleep debt
-        case 4..<5:
-            return -15.0 // Significant deficit
-        case 5..<6:
-            return -10.0 // Noticeable deficit
-        case 6..<7:
-            return -3.0  // Slight deficit
-        case 7..<8:
-            return 3.0   // Good sleep, slight boost
-        case 8..<9:
-            return 5.0   // Optimal sleep
-        case 9..<10:
-            return 2.0   // Still good
+        case ..<3:
+            return -20.0 // Extreme sleep debt
+        case 3..<4:
+            return -17.0 // Severe sleep debt
+        case 4..<4.5:
+            return -14.0 // Very poor
+        case 4.5..<5:
+            return -11.0 // Poor
+        case 5..<5.5:
+            return -8.0  // Below average
+        case 5.5..<6:
+            return -5.0  // Slightly below average
+        case 6..<6.5:
+            return -2.0  // Slight deficit
+        case 6.5..<7:
+            return 1.0   // Borderline adequate
+        case 7..<7.5:
+            return 4.0   // Good sleep
+        case 7.5..<8:
+            return 6.0   // Very good
+        case 8..<8.5:
+            return 8.0   // Optimal
+        case 8.5..<9:
+            return 6.0   // Great
+        case 9..<9.5:
+            return 3.0   // Slightly long
+        case 9.5..<10:
+            return 0.0   // Long
         default:
             return -3.0  // Oversleep may indicate fatigue/illness
         }
     }
 
     /// Calculates HRV's impact on tomorrow's readiness.
-    /// Higher HRV indicates better recovery/adaptation capacity.
+    /// More granular ranges based on HRV variability.
     private func calculateHRVImpact(hrv: Double) -> Double {
         switch hrv {
-        case ..<20:
+        case ..<15:
             return -15.0 // Very low, stressed/fatigued
-        case 20..<35:
-            return -8.0  // Below average
-        case 35..<50:
-            return -2.0  // Slightly below average
-        case 50..<70:
-            return 3.0   // Average to good
-        case 70..<100:
-            return 8.0   // Good recovery
+        case 15..<20:
+            return -12.0 // Low
+        case 20..<25:
+            return -9.0  // Below average
+        case 25..<30:
+            return -6.0  // Slightly below average
+        case 30..<35:
+            return -3.0  // Borderline
+        case 35..<40:
+            return 0.0   // Average
+        case 40..<50:
+            return 3.0   // Above average
+        case 50..<60:
+            return 5.0   // Good
+        case 60..<70:
+            return 7.0   // Very good
+        case 70..<85:
+            return 9.0   // Great recovery
+        case 85..<100:
+            return 11.0  // Excellent recovery
         default:
-            return 12.0  // Excellent recovery
+            return 12.0  // Elite recovery
         }
     }
 
     /// Calculates RHR's impact on tomorrow's readiness.
-    /// Lower RHR generally indicates better cardiovascular fitness/recovery.
+    /// More granular ranges for heart rate sensitivity.
     private func calculateRHRImpact(rhr: Double) -> Double {
         switch rhr {
-        case 90...:
-            return -10.0 // Elevated, possible stress/illness
-        case 80..<90:
-            return -5.0  // Above average
-        case 70..<80:
-            return -2.0  // Slightly above average
-        case 60..<70:
-            return 2.0   // Average
-        case 50..<60:
-            return 5.0   // Good
+        case 95...:
+            return -12.0 // Very elevated, illness likely
+        case 90..<95:
+            return -10.0 // Elevated, stress/illness
+        case 85..<90:
+            return -8.0  // High
+        case 80..<85:
+            return -6.0  // Above average
+        case 75..<80:
+            return -4.0  // Slightly above average
+        case 70..<75:
+            return -2.0  // Average high
+        case 65..<70:
+            return 0.0   // Average
+        case 60..<65:
+            return 2.0   // Good
+        case 55..<60:
+            return 4.0   // Very good
+        case 50..<55:
+            return 6.0   // Excellent
+        case 45..<50:
+            return 8.0   // Athletic
         default:
-            return 8.0   // Athletic range
+            return 10.0  // Elite athletic
         }
     }
 
     /// Calculates activity's impact on tomorrow's readiness.
-    /// Activity impact depends on sleep - high activity with poor sleep = worse tomorrow.
+    /// More granular step ranges with sleep-dependent adjustments.
     private func calculateActivityImpact(steps: Int, sleepHours: Double) -> Double {
         let isWellRested = sleepHours >= 7
 
         switch steps {
-        case ..<3000:
-            // Very low activity - neutral, doesn't help or hurt much
-            return 0.0
-        case 3000..<7000:
-            // Light activity - generally positive for recovery
-            return 3.0
-        case 7000..<12000:
-            // Moderate activity
+        case ..<1000:
+            return -4.0  // Very sedentary
+        case 1000..<2000:
+            return -3.0  // Sedentary
+        case 2000..<3000:
+            return -2.0  // Low activity
+        case 3000..<4000:
+            return 0.0   // Light activity
+        case 4000..<5000:
+            return 2.0   // Moderate-light
+        case 5000..<6000:
+            return 3.0   // Moderate
+        case 6000..<7000:
+            return 4.0   // Good activity
+        case 7000..<8000:
+            return isWellRested ? 5.0 : 2.0
+        case 8000..<9000:
+            return isWellRested ? 6.0 : 1.0
+        case 9000..<10000:
+            return isWellRested ? 6.0 : 0.0
+        case 10000..<12000:
             return isWellRested ? 5.0 : -2.0
-        case 12000..<18000:
-            // High activity - draining unless well-rested
-            return isWellRested ? 2.0 : -8.0
+        case 12000..<14000:
+            return isWellRested ? 3.0 : -4.0
+        case 14000..<16000:
+            return isWellRested ? 1.0 : -6.0
+        case 16000..<18000:
+            return isWellRested ? -1.0 : -8.0
+        case 18000..<20000:
+            return isWellRested ? -3.0 : -10.0
         default:
-            // Very high activity - likely fatiguing
-            return isWellRested ? -3.0 : -12.0
+            return isWellRested ? -5.0 : -12.0 // Very high, fatiguing
         }
     }
 

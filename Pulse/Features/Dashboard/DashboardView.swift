@@ -17,13 +17,38 @@ import SwiftUI
 struct DashboardView: View {
     @Environment(AppContainer.self) private var container
 
-    @State private var todaysCheckIn: CheckIn?
+    @State private var morningCheckIn: CheckIn?
+    @State private var eveningCheckIn: CheckIn?
     @State private var todaysMetrics: HealthMetrics?
     @State private var readinessScore: ReadinessScore?
     @State private var tomorrowsPrediction: Prediction?
     @State private var isLoading = true
-    @State private var showingCheckIn = false
+    @State private var showingMorningCheckIn = false
+    @State private var showingEveningCheckIn = false
     @State private var errorMessage: String?
+
+    // MARK: - Time Windows (can be user-configurable later)
+
+    /// Hour when morning check-in window ends (default: 4 PM / 16:00)
+    private let morningWindowEndHour: Int = 16
+
+    /// Hour when evening check-in window starts (default: 5 PM / 17:00)
+    private let eveningWindowStartHour: Int = 17
+
+    /// Current hour for time-based UI decisions
+    private var currentHour: Int {
+        Calendar.current.component(.hour, from: Date())
+    }
+
+    /// Whether we're in the morning check-in window
+    private var isMorningWindow: Bool {
+        currentHour < morningWindowEndHour
+    }
+
+    /// Whether we're in the evening check-in window
+    private var isEveningWindow: Bool {
+        currentHour >= eveningWindowStartHour
+    }
 
     var body: some View {
         NavigationStack {
@@ -34,16 +59,20 @@ struct DashboardView: View {
                         ReadinessScoreCard(score: score)
                     }
 
-                    // Tomorrow's prediction card
+                    // Tomorrow's prediction card (shown after evening check-in or if we have one)
                     if let prediction = tomorrowsPrediction {
                         TomorrowPredictionCard(prediction: prediction)
                     }
 
-                    // Check-in status card
-                    CheckInStatusCard(
-                        checkIn: todaysCheckIn,
+                    // Single contextual check-in card
+                    CheckInCard(
+                        morningCheckIn: morningCheckIn,
+                        eveningCheckIn: eveningCheckIn,
                         isLoading: isLoading,
-                        onCheckInTapped: { showingCheckIn = true }
+                        isMorningWindow: isMorningWindow,
+                        isEveningWindow: isEveningWindow,
+                        onMorningCheckInTapped: { showingMorningCheckIn = true },
+                        onEveningCheckInTapped: { showingEveningCheckIn = true }
                     )
 
                     // Today's metrics card
@@ -64,8 +93,13 @@ struct DashboardView: View {
             .refreshable {
                 await loadData()
             }
-            .sheet(isPresented: $showingCheckIn) {
+            .sheet(isPresented: $showingMorningCheckIn) {
                 CheckInView {
+                    Task { await loadData() }
+                }
+            }
+            .sheet(isPresented: $showingEveningCheckIn) {
+                EveningCheckInView {
                     Task { await loadData() }
                 }
             }
@@ -90,18 +124,19 @@ struct DashboardView: View {
     private func loadData() async {
         errorMessage = nil
 
-        // Load check-in and metrics concurrently
-        async let checkInTask: () = loadTodaysCheckIn()
+        // Load check-ins and metrics concurrently
+        async let morningTask: () = loadMorningCheckIn()
+        async let eveningTask: () = loadEveningCheckIn()
         async let metricsTask: () = loadTodaysMetrics()
+        async let predictionTask: () = loadTomorrowsPrediction()
 
-        await checkInTask
+        await morningTask
+        await eveningTask
         await metricsTask
+        await predictionTask
 
         // Calculate readiness score from loaded data and save it
         await calculateAndSaveReadinessScore()
-
-        // Generate or refresh tomorrow's prediction
-        await generateTomorrowsPrediction()
 
         isLoading = false
     }
@@ -109,7 +144,7 @@ struct DashboardView: View {
     private func calculateAndSaveReadinessScore() async {
         guard let score = container.readinessCalculator.calculate(
             from: todaysMetrics,
-            energyLevel: todaysCheckIn?.energyLevel
+            energyLevel: morningCheckIn?.energyLevel
         ) else {
             readinessScore = nil
             return
@@ -125,11 +160,19 @@ struct DashboardView: View {
         }
     }
 
-    private func loadTodaysCheckIn() async {
+    private func loadMorningCheckIn() async {
         do {
-            todaysCheckIn = try await container.checkInRepository.getTodaysCheckIn(type: .morning)
+            morningCheckIn = try await container.checkInRepository.getTodaysCheckIn(type: .morning)
         } catch {
-            print("Failed to load today's check-in: \(error)")
+            print("Failed to load morning check-in: \(error)")
+        }
+    }
+
+    private func loadEveningCheckIn() async {
+        do {
+            eveningCheckIn = try await container.checkInRepository.getTodaysCheckIn(type: .evening)
+        } catch {
+            print("Failed to load evening check-in: \(error)")
         }
     }
 
@@ -141,16 +184,14 @@ struct DashboardView: View {
         }
     }
 
-    private func generateTomorrowsPrediction() async {
+    private func loadTomorrowsPrediction() async {
         do {
-            // Try to create a prediction based on today's data
-            tomorrowsPrediction = try await container.predictionService.createPrediction(
-                metrics: todaysMetrics,
-                energyLevel: todaysCheckIn?.energyLevel,
-                todayScore: readinessScore?.score
-            )
+            // First try to get existing prediction for tomorrow
+            let calendar = Calendar.current
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
+            tomorrowsPrediction = try await container.predictionRepository.getPrediction(for: tomorrow)
         } catch {
-            print("Failed to generate prediction: \(error)")
+            print("Failed to load prediction: \(error)")
         }
     }
 }
@@ -437,107 +478,233 @@ private struct TomorrowPredictionCard: View {
     }
 }
 
-// MARK: - Check-In Status Card
+// MARK: - Unified Check-In Card
 
-/// Shows whether the user has completed their morning check-in.
-private struct CheckInStatusCard: View {
-    let checkIn: CheckIn?
+/// A single contextual check-in card that shows the appropriate state based on:
+/// - Time of day (morning vs evening window)
+/// - Check-in completion status (morning done, evening done, both done)
+private struct CheckInCard: View {
+    let morningCheckIn: CheckIn?
+    let eveningCheckIn: CheckIn?
     let isLoading: Bool
-    let onCheckInTapped: () -> Void
+    let isMorningWindow: Bool
+    let isEveningWindow: Bool
+    let onMorningCheckInTapped: () -> Void
+    let onEveningCheckInTapped: () -> Void
 
-    /// Computed state for animation tracking
-    private var state: CardState {
+    /// Determines what state to show
+    private var cardState: CardState {
         if isLoading { return .loading }
-        if checkIn != nil { return .checkedIn }
-        return .notCheckedIn
+
+        let hasMorning = morningCheckIn != nil
+        let hasEvening = eveningCheckIn != nil
+
+        // Evening done - show completion (regardless of morning status)
+        if hasEvening {
+            return .allComplete
+        }
+
+        // Evening window, evening not done
+        if isEveningWindow {
+            return .eveningPending
+        }
+
+        // Morning window
+        if isMorningWindow {
+            if !hasMorning {
+                return .morningPending
+            } else {
+                return .waitingForEvening
+            }
+        }
+
+        // Between windows (4-5 PM gap)
+        if hasMorning {
+            return .waitingForEvening
+        }
+
+        // Fallback: morning not done, not in morning window, not evening yet
+        return .morningMissed
     }
 
     private enum CardState {
-        case loading, checkedIn, notCheckedIn
-    }
-
-    /// Asymmetric transition: loading fades out faster than new content fades in
-    private var loadingTransition: AnyTransition {
-        .asymmetric(
-            insertion: .opacity.animation(.easeIn(duration: 0.15)),
-            removal: .opacity.animation(.easeOut(duration: 0.15))
-        )
-    }
-
-    private var contentTransition: AnyTransition {
-        .asymmetric(
-            insertion: .opacity.animation(.easeIn(duration: 0.3).delay(0.1)),
-            removal: .opacity.animation(.easeOut(duration: 0.15))
-        )
+        case loading
+        case morningPending      // Morning window, no check-in yet
+        case waitingForEvening   // Morning done, waiting for evening window
+        case eveningPending      // Evening window, can check in
+        case allComplete         // Both check-ins done
+        case morningMissed       // Past morning window, no morning check-in
     }
 
     var body: some View {
         VStack(spacing: 16) {
-            switch state {
+            switch cardState {
             case .loading:
-                // Loading state - show placeholder to prevent flash
-                HStack {
-                    ProgressView()
-                    Text("Checking status...")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-                .transition(loadingTransition)
+                loadingView
 
-            case .checkedIn:
-                // Already checked in
-                if let checkIn = checkIn {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label("Morning Check-In", systemImage: "checkmark.circle.fill")
-                                .font(.headline)
-                                .foregroundStyle(.green)
+            case .morningPending:
+                morningPromptView
 
-                            Text("Completed at \(checkIn.timestamp.formatted(date: .omitted, time: .shortened))")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
+            case .waitingForEvening:
+                waitingForEveningView
 
-                        Spacer()
+            case .eveningPending:
+                eveningPromptView
 
-                        // Energy level badge
-                        EnergyBadge(level: checkIn.energyLevel)
-                    }
-                    .transition(contentTransition)
-                }
+            case .allComplete:
+                allCompleteView
 
-            case .notCheckedIn:
-                // Not checked in yet
-                VStack(spacing: 12) {
-                    Image(systemName: "sun.horizon.fill")
-                        .font(.largeTitle)
-                        .foregroundStyle(.orange)
-
-                    Text("Good Morning!")
-                        .font(.headline)
-
-                    Text("Start your day with a quick check-in")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-
-                    Button("Check In Now") {
-                        onCheckInTapped()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.regular)
-                }
-                .padding(.vertical, 8)
-                .transition(contentTransition)
+            case .morningMissed:
+                morningMissedView
             }
         }
         .padding()
         .frame(maxWidth: .infinity)
+        .background(backgroundGradient)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .animation(.easeInOut(duration: 0.3), value: state)
+        .animation(.easeInOut(duration: 0.3), value: cardState)
+    }
+
+    // MARK: - Card States
+
+    private var loadingView: some View {
+        HStack {
+            ProgressView()
+            Text("Checking status...")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+    }
+
+    private var morningPromptView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "sun.horizon.fill")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+
+            Text("Good Morning!")
+                .font(.headline)
+
+            Text("Start your day with a quick check-in")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button("Check In Now") {
+                onMorningCheckInTapped()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var waitingForEveningView: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Morning Check-In", systemImage: "checkmark.circle.fill")
+                    .font(.headline)
+                    .foregroundStyle(.green)
+
+                Text("Come back this evening for your next check-in")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if let checkIn = morningCheckIn {
+                EnergyBadge(level: checkIn.energyLevel)
+            }
+        }
+    }
+
+    private var eveningPromptView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "moon.stars.fill")
+                .font(.largeTitle)
+                .foregroundStyle(.purple)
+
+            Text("Good Evening!")
+                .font(.headline)
+
+            Text("Wrap up your day and see tomorrow's prediction")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button("Evening Check-In") {
+                onEveningCheckInTapped()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.purple)
+            .controlSize(.regular)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var allCompleteView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label("All Done for Today", systemImage: "checkmark.circle.fill")
+                .font(.headline)
+                .foregroundStyle(.green)
+
+            Text("Check back tomorrow morning!")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var morningMissedView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "clock.badge.exclamationmark")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+
+            Text("Morning check-in window passed")
+                .font(.headline)
+
+            if isEveningWindow {
+                Text("You can still do your evening check-in")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                Button("Evening Check-In") {
+                    onEveningCheckInTapped()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.purple)
+                .controlSize(.regular)
+            } else {
+                Text("Evening check-in available after 5 PM")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    // MARK: - Styling
+
+    private var backgroundGradient: some View {
+        Group {
+            switch cardState {
+            case .eveningPending, .allComplete:
+                LinearGradient(
+                    colors: [Color.purple.opacity(0.1), Color.purple.opacity(0.05)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            default:
+                Color.clear
+            }
+        }
     }
 }
 

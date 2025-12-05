@@ -127,42 +127,69 @@ final class AppContainer {
         UserDefaults.standard.set(true, forKey: key)
     }
 
-    /// Generates sample historical check-ins for the past 14 days
+    /// Generates sample historical check-ins for the past 14 days (morning and evening)
     private static func generateSampleCheckIns() -> [CheckIn] {
         let calendar = Calendar.current
         let today = Date()
+        var checkIns: [CheckIn] = []
 
-        return (1..<14).compactMap { daysAgo -> CheckIn? in
+        for daysAgo in 1..<14 {
             guard let date = calendar.date(byAdding: .day, value: -daysAgo, to: today) else {
-                return nil
+                continue
             }
 
-            // Set time to morning (around 7-9 AM)
-            let hour = Int.random(in: 7...9)
-            let minute = Int.random(in: 0...59)
-            guard let timestamp = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: date) else {
-                return nil
+            // Morning check-in (around 7-9 AM)
+            let morningHour = Int.random(in: 7...9)
+            let morningMinute = Int.random(in: 0...59)
+            if let morningTimestamp = calendar.date(bySettingHour: morningHour, minute: morningMinute, second: 0, of: date) {
+                let energyLevel = Int.random(in: 2...5)
+
+                // Create health snapshot for most check-ins
+                let healthSnapshot: HealthMetrics? = Int.random(in: 1...10) <= 8 ? HealthMetrics(
+                    date: date,
+                    restingHeartRate: Double.random(in: 52...72),
+                    hrv: Double.random(in: 25...75),
+                    sleepDuration: TimeInterval.random(in: 5*3600...9*3600),
+                    steps: Int.random(in: 3000...15000),
+                    activeCalories: Double.random(in: 150...650)
+                ) : nil
+
+                checkIns.append(CheckIn(
+                    timestamp: morningTimestamp,
+                    type: .morning,
+                    energyLevel: energyLevel,
+                    healthSnapshot: healthSnapshot
+                ))
             }
 
-            let energyLevel = Int.random(in: 2...5)
+            // Evening check-in (around 8-10 PM) - 80% chance of having one
+            if Int.random(in: 1...10) <= 8 {
+                let eveningHour = Int.random(in: 20...22)
+                let eveningMinute = Int.random(in: 0...59)
+                if let eveningTimestamp = calendar.date(bySettingHour: eveningHour, minute: eveningMinute, second: 0, of: date) {
+                    let energyLevel = Int.random(in: 2...5)
 
-            // Create health snapshot for most check-ins
-            let healthSnapshot: HealthMetrics? = Int.random(in: 1...10) <= 8 ? HealthMetrics(
-                date: date,
-                restingHeartRate: Double.random(in: 52...72),
-                hrv: Double.random(in: 25...75),
-                sleepDuration: TimeInterval.random(in: 5*3600...9*3600),
-                steps: Int.random(in: 3000...15000),
-                activeCalories: Double.random(in: 150...650)
-            ) : nil
+                    // Evening snapshot with full day data
+                    let healthSnapshot = HealthMetrics(
+                        date: date,
+                        restingHeartRate: Double.random(in: 52...72),
+                        hrv: Double.random(in: 25...75),
+                        sleepDuration: TimeInterval.random(in: 5*3600...9*3600),
+                        steps: Int.random(in: 5000...18000),
+                        activeCalories: Double.random(in: 200...800)
+                    )
 
-            return CheckIn(
-                timestamp: timestamp,
-                type: .morning,
-                energyLevel: energyLevel,
-                healthSnapshot: healthSnapshot
-            )
+                    checkIns.append(CheckIn(
+                        timestamp: eveningTimestamp,
+                        type: .evening,
+                        energyLevel: energyLevel,
+                        healthSnapshot: healthSnapshot
+                    ))
+                }
+            }
         }
+
+        return checkIns
     }
 
     /// Generates sample historical scores for the past 14 days
