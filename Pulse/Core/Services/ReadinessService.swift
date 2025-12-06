@@ -45,10 +45,11 @@ protocol ReadinessServiceProtocol: Sendable {
 /// score = (rulesScore * (1 - mlWeight)) + (mlScore * mlWeight)
 /// ```
 ///
-/// Where `mlWeight` increases linearly over 30 days based on completed training examples:
-/// - 0 examples (Day 1): 0/30 ML (0%), 30/30 rules (100%)
-/// - 15 examples: 15/30 ML (50%), 15/30 rules (50%)
-/// - 30+ examples: 100% ML
+/// Where `mlWeight` increases linearly over `transitionDays` (default 30) based on
+/// completed training examples:
+/// - 0 examples (Day 1): 0% ML, 100% rules
+/// - 50% of transitionDays: 50% ML, 50% rules
+/// - transitionDays+ examples: 100% ML
 ///
 /// ## Fallback Behavior
 /// If the ML model fails or returns nil:
@@ -78,18 +79,20 @@ actor ReadinessService: ReadinessServiceProtocol {
     private var daysOfData: Int = 0
 
     /// Days over which to transition from rules to ML
-    private let transitionDays: Int = 30
+    private let transitionDays: Int
 
     // MARK: - Initialization
 
     init(
         rulesCalculator: ReadinessCalculatorProtocol = ReadinessCalculator(),
         mlModel: PersonalizedReadinessModel = PersonalizedReadinessModel(),
-        trainingDataCollector: TrainingDataCollector = TrainingDataCollector()
+        trainingDataCollector: TrainingDataCollector = TrainingDataCollector(),
+        transitionDays: Int = 30
     ) {
         self.rulesCalculator = rulesCalculator
         self.mlModel = mlModel
         self.trainingDataCollector = trainingDataCollector
+        self.transitionDays = transitionDays
     }
 
     /// Loads any saved ML model from disk.
@@ -164,6 +167,15 @@ actor ReadinessService: ReadinessServiceProtocol {
         get async {
             await mlModel.trainingExampleCount
         }
+    }
+
+    /// Returns how many complete days of data we have (for UI progress display).
+    ///
+    /// This differs from `trainingExampleCount` in that it counts days even before
+    /// the minimum threshold for training is reached. Useful for showing progress
+    /// like "2/30 days" to users.
+    var completeDaysCount: Int {
+        daysOfData
     }
 
     /// Updates the count of days with data (for testing or manual override).

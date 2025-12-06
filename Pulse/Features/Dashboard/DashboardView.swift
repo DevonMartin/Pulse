@@ -215,7 +215,8 @@ struct DashboardView: View {
     }
 
     private func loadMLStatus() async {
-        mlExampleCount = await container.readinessService.trainingExampleCount
+        // Use completeDaysCount for progress display (counts days even before training starts)
+        mlExampleCount = await container.readinessService.completeDaysCount
         mlWeight = await container.readinessService.mlWeight
     }
 }

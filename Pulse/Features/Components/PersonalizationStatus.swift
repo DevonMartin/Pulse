@@ -24,8 +24,8 @@ struct PersonalizationStatus: View {
     /// Current ML weight (0-1, how much the prediction relies on ML vs rules)
     let mlWeight: Double
 
-    /// Threshold for full personalization
-    private let targetExamples = 30
+    /// Threshold for full personalization (default 30, can be customized for debug)
+    var targetExamples: Int = 30
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
