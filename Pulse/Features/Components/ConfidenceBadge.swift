@@ -7,10 +7,10 @@
 
 import SwiftUI
 
-/// Badge showing the confidence level of a score or prediction.
+/// Badge showing the confidence level of a readiness score.
 ///
 /// Used across multiple features to indicate data quality:
-/// - Dashboard: Readiness score and prediction confidence
+/// - Dashboard: Readiness score confidence
 /// - History: Historical score confidence levels
 struct ConfidenceBadge: View {
     let confidence: ReadinessConfidence

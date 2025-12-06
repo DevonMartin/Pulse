@@ -12,7 +12,6 @@ import SwiftUI
 /// This is the primary view users see when opening the app.
 /// It shows:
 /// - Today's readiness score
-/// - Tomorrow's prediction (if available)
 /// - Contextual check-in card
 /// - Today's health metrics summary
 struct DashboardView: View {
@@ -22,11 +21,14 @@ struct DashboardView: View {
     @State private var eveningCheckIn: CheckIn?
     @State private var todaysMetrics: HealthMetrics?
     @State private var readinessScore: ReadinessScore?
-    @State private var tomorrowsPrediction: Prediction?
     @State private var isLoading = true
     @State private var showingMorningCheckIn = false
     @State private var showingEveningCheckIn = false
     @State private var errorMessage: String?
+
+    // ML status
+    @State private var mlExampleCount: Int = 0
+    @State private var mlWeight: Double = 0
 
     // MARK: - Time Windows (can be user-configurable later)
 
@@ -60,11 +62,6 @@ struct DashboardView: View {
                         ReadinessScoreCard(score: score)
                     }
 
-                    // Tomorrow's prediction card (shown after evening check-in or if we have one)
-                    if let prediction = tomorrowsPrediction {
-                        TomorrowPredictionCard(prediction: prediction)
-                    }
-
                     // Single contextual check-in card
                     CheckInCard(
                         morningCheckIn: morningCheckIn,
@@ -74,6 +71,12 @@ struct DashboardView: View {
                         isEveningWindow: isEveningWindow,
                         onMorningCheckInTapped: { showingMorningCheckIn = true },
                         onEveningCheckInTapped: { showingEveningCheckIn = true }
+                    )
+
+                    // Personalization status
+                    PersonalizationStatus(
+                        exampleCount: mlExampleCount,
+                        mlWeight: mlWeight
                     )
 
                     // Today's metrics card
@@ -115,6 +118,14 @@ struct DashboardView: View {
     private func requestAuthorizationAndLoadData() async {
         do {
             try await container.healthKitService.requestAuthorization()
+
+            // Ensure sample data is populated before loading (for fresh installs)
+            await container.populateSampleDataIfNeeded()
+
+            // Load saved ML model and trigger retraining with historical data
+            await container.readinessService.loadSavedModel()
+            await retrainMLModel()
+
             await loadData()
         } catch {
             errorMessage = error.localizedDescription
@@ -129,21 +140,39 @@ struct DashboardView: View {
         async let morningTask: () = loadMorningCheckIn()
         async let eveningTask: () = loadEveningCheckIn()
         async let metricsTask: () = loadTodaysMetrics()
-        async let predictionTask: () = loadTomorrowsPrediction()
 
         await morningTask
         await eveningTask
         await metricsTask
-        await predictionTask
 
-        // Calculate readiness score from loaded data and save it
+        // Calculate readiness score using blended rules + ML
         await calculateAndSaveReadinessScore()
+
+        // Update ML status
+        await loadMLStatus()
 
         isLoading = false
     }
 
+    private func retrainMLModel() async {
+        // Fetch all historical check-ins for training
+        do {
+            let allCheckIns = try await container.checkInRepository.getCheckIns(
+                from: Date.distantPast,
+                to: Date()
+            )
+            await container.readinessService.retrain(
+                with: allCheckIns,
+                healthKitService: container.healthKitService
+            )
+        } catch {
+            print("Failed to retrain ML model: \(error)")
+        }
+    }
+
     private func calculateAndSaveReadinessScore() async {
-        guard let score = container.readinessCalculator.calculate(
+        // Use the blended readiness service (rules + ML)
+        guard let score = await container.readinessService.calculate(
             from: todaysMetrics,
             energyLevel: morningCheckIn?.energyLevel
         ) else {
@@ -185,15 +214,9 @@ struct DashboardView: View {
         }
     }
 
-    private func loadTomorrowsPrediction() async {
-        do {
-            // First try to get existing prediction for tomorrow
-            let calendar = Calendar.current
-            let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))!
-            tomorrowsPrediction = try await container.predictionRepository.getPrediction(for: tomorrow)
-        } catch {
-            print("Failed to load prediction: \(error)")
-        }
+    private func loadMLStatus() async {
+        mlExampleCount = await container.readinessService.trainingExampleCount
+        mlWeight = await container.readinessService.mlWeight
     }
 }
 

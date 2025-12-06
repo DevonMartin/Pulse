@@ -165,7 +165,7 @@ struct CheckInCard: View {
             Text("Good Evening!")
                 .font(.headline)
 
-            Text("Wrap up your day and see tomorrow's prediction")
+            Text("Wrap up your day with an evening check-in")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

@@ -7,13 +7,12 @@
 
 import SwiftUI
 
-/// The evening check-in flow where users:
-/// 1. Rate how their day went (energy level)
-/// 2. See tomorrow's prediction generated from today's data
+/// The evening check-in flow where users rate their energy throughout the day.
 ///
-/// This creates the prediction → resolution loop:
-/// - Evening: Capture end-of-day state, generate prediction
-/// - Morning: Compare prediction to actual, capture new state
+/// This captures a retrospective assessment of how energetic the user felt
+/// during the day (not how tired they are now). This data is used:
+/// - As training labels for the personalized readiness model
+/// - To validate how accurate the morning's readiness prediction was
 struct EveningCheckInView: View {
     @Environment(AppContainer.self) private var container
     @Environment(\.dismiss) private var dismiss
@@ -21,35 +20,21 @@ struct EveningCheckInView: View {
     @State private var selectedEnergy: Int = 3
     @State private var isSubmitting = false
     @State private var errorMessage: String?
-    @State private var generatedPrediction: Prediction?
-    @State private var currentStep: Step = .energyInput
 
     /// Called when check-in is successfully saved
     var onComplete: (() -> Void)?
 
-    private enum Step {
-        case energyInput
-        case predictionReveal
-    }
-
     var body: some View {
         NavigationStack {
-            VStack(spacing: 32) {
-                switch currentStep {
-                case .energyInput:
-                    energyInputView
-                case .predictionReveal:
-                    predictionRevealView
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
+            energyInputView
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            dismiss()
+                        }
                     }
                 }
-            }
         }
     }
 
@@ -65,7 +50,7 @@ struct EveningCheckInView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
-                Text("How did your day go?")
+                Text("How was your energy today?")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -99,7 +84,7 @@ struct EveningCheckInView: View {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                 } else {
-                    Text("Continue")
+                    Text("Save Check-In")
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -111,108 +96,15 @@ struct EveningCheckInView: View {
         }
     }
 
-    // MARK: - Prediction Reveal Step
-
-    private var predictionRevealView: some View {
-        VStack(spacing: 32) {
-            Spacer()
-
-            // Header
-            VStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.purple)
-
-                Text("Tomorrow's Forecast")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-            }
-
-            if let prediction = generatedPrediction {
-                // Prediction display
-                VStack(spacing: 16) {
-                    Text("\(prediction.predictedScore)")
-                        .font(.system(size: 72, weight: .bold, design: .rounded))
-                        .foregroundStyle(scoreColor(prediction.predictedScore))
-
-                    Text(prediction.scoreDescription)
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-
-                    // Trend message
-                    HStack(spacing: 8) {
-                        Image(systemName: trendIcon(prediction.predictedScore))
-                            .foregroundStyle(scoreColor(prediction.predictedScore))
-                        Text(trendMessage(prediction.predictedScore))
-                            .font(.headline)
-                    }
-                    .padding()
-                    .background(scoreColor(prediction.predictedScore).opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                    // Confidence indicator
-                    HStack(spacing: 4) {
-                        Text("Confidence:")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(confidenceLabel(prediction.confidence))
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundStyle(confidenceColor(prediction.confidence))
-                    }
-                }
-                .padding()
-            } else {
-                // No prediction generated
-                VStack(spacing: 12) {
-                    Image(systemName: "questionmark.circle")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
-
-                    Text("Couldn't generate a prediction")
-                        .font(.headline)
-
-                    Text("We need more data to forecast tomorrow's readiness.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding()
-            }
-
-            Spacer()
-
-            // Explanation
-            Text("Check in tomorrow morning to see how accurate this prediction was!")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-
-            // Done button
-            Button {
-                onComplete?()
-                dismiss()
-            } label: {
-                Text("Done")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .padding(.horizontal)
-            .padding(.bottom)
-        }
-    }
-
     // MARK: - Computed Properties
 
     private var energyDescription: String {
         switch selectedEnergy {
-        case 1: return "Very Low - Exhausted, drained"
-        case 2: return "Low - Tired, sluggish day"
-        case 3: return "Moderate - Average day"
-        case 4: return "High - Productive, good energy"
-        case 5: return "Very High - Excellent day"
+        case 1: return "Very Low - Struggled all day"
+        case 2: return "Low - Sluggish, low motivation"
+        case 3: return "Moderate - Typical day"
+        case 4: return "High - Energetic, productive"
+        case 5: return "Very High - Exceptional energy"
         default: return ""
         }
     }
@@ -224,8 +116,8 @@ struct EveningCheckInView: View {
         errorMessage = nil
 
         do {
-            // Evening check-in only captures energy level - no health snapshot needed
-            // (Morning check-in captures sleep/HRV/RHR, prediction uses that data)
+            // Evening check-in captures how the day went
+            // This data is used for ML training (blended with morning energy as label)
             let checkIn = CheckIn(
                 type: .evening,
                 energyLevel: selectedEnergy,
@@ -234,79 +126,13 @@ struct EveningCheckInView: View {
 
             try await container.checkInRepository.save(checkIn)
 
-            // Fetch today's metrics for prediction (uses morning's sleep/HRV + today's activity)
-            let todayMetrics = try await container.healthKitService.fetchMetrics(for: Date())
-
-            // Get today's readiness score for prediction input
-            let todayScore = try? await container.readinessScoreRepository.getScore(for: Date())
-
-            // Generate tomorrow's prediction using:
-            // - Today's metrics (sleep from last night, current HRV/RHR, today's steps)
-            // - Evening energy level (how the day went)
-            // - Today's readiness score as baseline
-            generatedPrediction = try await container.predictionService.createPrediction(
-                metrics: todayMetrics,
-                energyLevel: selectedEnergy,
-                todayScore: todayScore?.score
-            )
-
-            // Transition to prediction reveal
-            withAnimation(.easeInOut(duration: 0.3)) {
-                currentStep = .predictionReveal
-            }
+            onComplete?()
+            dismiss()
         } catch {
             errorMessage = "Failed to save check-in: \(error.localizedDescription)"
         }
 
         isSubmitting = false
-    }
-
-    // MARK: - Helpers
-
-    private func scoreColor(_ score: Int) -> Color {
-        switch score {
-        case 0...40: return .red
-        case 41...60: return .orange
-        case 61...80: return .green
-        case 81...100: return .mint
-        default: return .gray
-        }
-    }
-
-    private func trendIcon(_ score: Int) -> String {
-        switch score {
-        case 0...40: return "arrow.down.circle.fill"
-        case 41...55: return "minus.circle.fill"
-        case 56...75: return "equal.circle.fill"
-        case 76...100: return "arrow.up.circle.fill"
-        default: return "questionmark.circle.fill"
-        }
-    }
-
-    private func trendMessage(_ score: Int) -> String {
-        switch score {
-        case 0...40: return "Take it easy tomorrow"
-        case 41...55: return "Light activity recommended"
-        case 56...75: return "Moderate day ahead"
-        case 76...100: return "Great day tomorrow!"
-        default: return "Unknown"
-        }
-    }
-
-    private func confidenceLabel(_ confidence: ReadinessConfidence) -> String {
-        switch confidence {
-        case .full: return "High"
-        case .partial: return "Medium"
-        case .limited: return "Low"
-        }
-    }
-
-    private func confidenceColor(_ confidence: ReadinessConfidence) -> Color {
-        switch confidence {
-        case .full: return .green
-        case .partial: return .orange
-        case .limited: return .red
-        }
     }
 }
 
