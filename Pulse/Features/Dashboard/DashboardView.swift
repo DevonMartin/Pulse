@@ -30,29 +30,6 @@ struct DashboardView: View {
     @State private var mlExampleCount: Int = 0
     @State private var mlWeight: Double = 0
 
-    // MARK: - Time Windows (can be user-configurable later)
-
-    /// Hour when morning check-in window ends (default: 4 PM / 16:00)
-    private let morningWindowEndHour: Int = 16
-
-    /// Hour when evening check-in window starts (default: 5 PM / 17:00)
-    private let eveningWindowStartHour: Int = 17
-
-    /// Current hour for time-based UI decisions
-    private var currentHour: Int {
-        Calendar.current.component(.hour, from: Date())
-    }
-
-    /// Whether we're in the morning check-in window
-    private var isMorningWindow: Bool {
-        currentHour < morningWindowEndHour
-    }
-
-    /// Whether we're in the evening check-in window
-    private var isEveningWindow: Bool {
-        currentHour >= eveningWindowStartHour
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -67,8 +44,8 @@ struct DashboardView: View {
                         morningCheckIn: morningCheckIn,
                         eveningCheckIn: eveningCheckIn,
                         isLoading: isLoading,
-                        isMorningWindow: isMorningWindow,
-                        isEveningWindow: isEveningWindow,
+                        isMorningWindow: TimeWindows.isMorningWindow,
+                        isEveningWindow: TimeWindows.isEveningWindow,
                         onMorningCheckInTapped: { showingMorningCheckIn = true },
                         onEveningCheckInTapped: { showingEveningCheckIn = true }
                     )
@@ -151,6 +128,9 @@ struct DashboardView: View {
         // Update ML status
         await loadMLStatus()
 
+        // Update widget with latest data
+        updateWidgetData()
+
         isLoading = false
     }
 
@@ -218,6 +198,19 @@ struct DashboardView: View {
         // Use completeDaysCount for progress display (counts days even before training starts)
         mlExampleCount = await container.readinessService.completeDaysCount
         mlWeight = await container.readinessService.mlWeight
+    }
+
+    private func updateWidgetData() {
+        let data = WidgetData(
+            score: readinessScore?.score,
+			scoreDescription: readinessScore?.scoreDescription,
+            morningCheckInComplete: morningCheckIn != nil,
+            eveningCheckInComplete: eveningCheckIn != nil,
+            personalizationDays: mlExampleCount,
+            personalizationTarget: 30,
+            lastUpdated: Date()
+        )
+        WidgetDataProvider.save(data)
     }
 }
 

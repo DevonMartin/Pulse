@@ -86,6 +86,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		00D1F4472EE4D9DE0016F41F /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		00F6AF182EDDD410003B6EBE /* Pulse */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -160,6 +165,7 @@
 				00F6AF282EDDD411003B6EBE /* PulseTests */,
 				00F6AF322EDDD411003B6EBE /* PulseUITests */,
 				00F6AF4F2EDDD6CC003B6EBE /* PulseWidget */,
+				00D1F4472EE4D9DE0016F41F /* Shared */,
 				00F6AF4A2EDDD6CC003B6EBE /* Frameworks */,
 				00F6AF172EDDD410003B6EBE /* Products */,
 			);
@@ -203,6 +209,7 @@
 				00F6AF582EDDD6CD003B6EBE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
+				00D1F4472EE4D9DE0016F41F /* Shared */,
 				00F6AF182EDDD410003B6EBE /* Pulse */,
 			);
 			name = Pulse;
@@ -271,6 +278,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				00D1F4472EE4D9DE0016F41F /* Shared */,
 				00F6AF4F2EDDD6CC003B6EBE /* PulseWidget */,
 			);
 			name = PulseWidgetExtension;

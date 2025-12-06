@@ -63,24 +63,12 @@ nonisolated struct ReadinessScore: Identifiable, Equatable, Sendable {
 extension ReadinessScore {
     /// Human-readable description of the score
     var scoreDescription: String {
-        switch score {
-        case 0...40: return "Poor"
-        case 41...60: return "Moderate"
-        case 61...80: return "Good"
-        case 81...100: return "Excellent"
-        default: return "Unknown"
-        }
+        ReadinessStyles.description(for: score)
     }
 
     /// Suggested action based on score
     var recommendation: String {
-        switch score {
-        case 0...40: return "Consider rest or light recovery activities"
-        case 41...60: return "Light to moderate activity recommended"
-        case 61...80: return "Good day for normal training"
-        case 81...100: return "Great day for challenging workouts"
-        default: return ""
-        }
+        ReadinessStyles.recommendation(for: score)
     }
 
     /// Returns true if this score is from today

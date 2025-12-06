@@ -92,13 +92,7 @@ struct ReadinessScoreCard: View {
     }
 
     private var scoreColor: Color {
-        switch score.score {
-        case 0...40: return .red
-        case 41...60: return .orange
-        case 61...80: return .green
-        case 81...100: return .mint
-        default: return .gray
-        }
+        ReadinessStyles.color(for: score.score)
     }
 }
 

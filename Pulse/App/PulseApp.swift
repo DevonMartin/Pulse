@@ -19,6 +19,10 @@ struct PulseApp: App {
     /// The app's dependency container, created once at launch.
     @State private var container: AppContainer
 
+    /// Deep link state for showing check-in sheets
+    @State private var showingMorningCheckIn = false
+    @State private var showingEveningCheckIn = false
+
     // MARK: - Initialization
 
     init() {
@@ -59,7 +63,54 @@ struct PulseApp: App {
                     }
             }
             .environment(container)
+            .onOpenURL { url in
+                handleDeepLink(url)
+            }
+            .sheet(isPresented: $showingMorningCheckIn) {
+                CheckInView {}
+                    .environment(container)
+            }
+            .sheet(isPresented: $showingEveningCheckIn) {
+                EveningCheckInView {}
+                    .environment(container)
+            }
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    // MARK: - Deep Linking
+
+    private func handleDeepLink(_ url: URL) {
+        // Expected format: pulse://checkin
+        guard url.scheme == "pulse",
+              url.host == "checkin" else {
+            return
+        }
+
+        // Small delay to ensure the view hierarchy is ready
+        // This prevents crashes when cold-launching via deep link
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task {
+                await showAppropriateCheckIn()
+            }
+        }
+    }
+
+    private func showAppropriateCheckIn() async {
+        // Check time window first
+        if TimeWindows.isMorningWindow {
+            // Morning window: show morning check-in if not already done
+            let morningCheckIn = try? await container.checkInRepository.getTodaysCheckIn(type: .morning)
+            if morningCheckIn == nil {
+                showingMorningCheckIn = true
+            }
+        } else if TimeWindows.isEveningWindow {
+            // Evening window: show evening check-in if not already done
+            let eveningCheckIn = try? await container.checkInRepository.getTodaysCheckIn(type: .evening)
+            if eveningCheckIn == nil {
+                showingEveningCheckIn = true
+            }
+        }
+        // Outside both windows or already checked in: just open the app
     }
 }
