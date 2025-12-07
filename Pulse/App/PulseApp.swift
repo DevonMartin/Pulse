@@ -7,6 +7,15 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
+
+// MARK: - App Delegate
+
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        return .portrait
+    }
+}
 
 // MARK: - Notifications
 
@@ -18,6 +27,8 @@ extension Notification.Name {
 
 @main
 struct PulseApp: App {
+
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     // MARK: - Dependencies
 
