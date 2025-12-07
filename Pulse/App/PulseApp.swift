@@ -8,6 +8,14 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Notifications
+
+extension Notification.Name {
+    /// Posted when a check-in completes (from deep link or widget).
+    /// DashboardView observes this to refresh its data.
+    static let checkInCompleted = Notification.Name("checkInCompleted")
+}
+
 @main
 struct PulseApp: App {
 
@@ -65,12 +73,16 @@ struct PulseApp: App {
                 handleDeepLink(url)
             }
             .sheet(isPresented: $showingMorningCheckIn) {
-                CheckInView {}
-                    .environment(container)
+                CheckInView {
+                    NotificationCenter.default.post(name: .checkInCompleted, object: nil)
+                }
+                .environment(container)
             }
             .sheet(isPresented: $showingEveningCheckIn) {
-                EveningCheckInView {}
-                    .environment(container)
+                EveningCheckInView {
+                    NotificationCenter.default.post(name: .checkInCompleted, object: nil)
+                }
+                .environment(container)
             }
         }
         .modelContainer(sharedModelContainer)

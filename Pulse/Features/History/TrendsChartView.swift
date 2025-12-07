@@ -205,7 +205,6 @@ struct TrendsChartView: View {
                 }
             }
             .chartYScale(domain: scoreRange, type: .linear)
-            .animation(.easeInOut(duration: 0.3), value: daysWithScores.map(\.id))
             .chartYAxis {
                 AxisMarks(position: .leading, values: .stride(by: 20)) { value in
                     AxisGridLine()

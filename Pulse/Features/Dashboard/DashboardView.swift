@@ -84,6 +84,9 @@ struct DashboardView: View {
             .task {
                 await requestAuthorizationAndLoadData()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .checkInCompleted)) { _ in
+                Task { await loadData() }
+            }
         }
     }
 

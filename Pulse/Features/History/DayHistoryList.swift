@@ -34,19 +34,17 @@ struct DayHistoryList: View {
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
-                ForEach(groupedDays, id: \.section) { group in
-                    Section {
-                        ForEach(group.days) { day in
-                            DayCard(day: day)
-                        }
-                    } header: {
-                        SectionHeader(title: group.section.title)
+        // Note: No ScrollView here - parent view provides the scroll container
+        LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
+            ForEach(groupedDays, id: \.section) { group in
+                Section {
+                    ForEach(group.days) { day in
+                        DayCard(day: day)
                     }
+                } header: {
+                    SectionHeader(title: group.section.title)
                 }
             }
-            .padding()
         }
     }
 }
@@ -477,5 +475,8 @@ private struct MetricPill: View {
         )
     ]
 
-    DayHistoryList(days: mockDays)
+    ScrollView {
+        DayHistoryList(days: mockDays)
+            .padding()
+    }
 }
