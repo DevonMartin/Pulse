@@ -32,7 +32,8 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Readiness score card (always shown - uses current day or placeholder)
+                    // Readiness score card
+					// (always shown - uses current day or placeholder)
                     ReadinessScoreCard(day: currentDay ?? Day(startDate: Date()))
 
                     // Single contextual check-in card
@@ -51,7 +52,8 @@ struct DashboardView: View {
                         mlWeight: mlWeight
                     )
 
-                    // Today's metrics card (prefer Day's metrics if available, otherwise fetch from HealthKit)
+                    // Today's metrics card
+					// (prefer Day's metrics if available, otherwise fetch from HealthKit)
                     TodaysMetricsCard(metrics: currentDay?.healthMetrics ?? todayMetrics)
 
                     // Error display
@@ -108,20 +110,13 @@ struct DashboardView: View {
     private func loadData() async {
         errorMessage = nil
 
-        // Load current day
+        // Use DayService to load and update today's data
         do {
-            currentDay = try await container.dayRepository.getCurrentDayIfExists()
+            let result = try await container.dayService.loadAndUpdateToday()
+            currentDay = result.day
+            todayMetrics = result.freshMetrics
         } catch {
-            print("Failed to load current day: \(error)")
-        }
-
-        // Fetch today's metrics from HealthKit (used when no Day exists yet)
-        if currentDay?.healthMetrics == nil {
-            do {
-                todayMetrics = try await container.healthKitService.fetchMetrics(for: Date())
-            } catch {
-                print("Failed to fetch today's metrics: \(error)")
-            }
+            print("Failed to load today's data: \(error)")
         }
 
         // Update ML status

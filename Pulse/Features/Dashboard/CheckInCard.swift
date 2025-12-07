@@ -8,15 +8,17 @@
 import SwiftUI
 
 /// A single contextual check-in card that shows the appropriate state based on:
-/// - Time of day (morning vs evening window)
+/// - Check-in window (first vs second)
 /// - Check-in completion status (first done, second done, both done)
 ///
+/// Uses time-agnostic language to support any schedule (standard day, night shift, etc.)
+///
 /// States:
-/// - `morningPending`: Morning window, no check-in yet
-/// - `waitingForEvening`: First check-in done, waiting for evening window
-/// - `eveningPending`: Evening window, can check in
+/// - `morningPending`: First check-in window, no check-in yet
+/// - `waitingForEvening`: First check-in done, waiting for second window
+/// - `eveningPending`: Second check-in window, can check in
 /// - `allComplete`: Both check-ins done
-/// - `morningMissed`: Past morning window, no first check-in
+/// - `morningMissed`: Past first check-in window, no first check-in
 struct CheckInCard: View {
     let day: Day?
     let isLoading: Bool
@@ -114,19 +116,19 @@ struct CheckInCard: View {
 
     private var morningPromptView: some View {
         VStack(spacing: 12) {
-            Image(systemName: "sun.horizon.fill")
+            Image(systemName: "sparkles")
                 .font(.largeTitle)
                 .foregroundStyle(.orange)
 
-            Text("Good Morning!")
+            Text("Ready to Start?")
                 .font(.headline)
 
-            Text("Start your day with a quick check-in")
+            Text("Begin your day with a quick check-in")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            Button("Check In Now") {
+            Button("First Check-In") {
                 onMorningCheckInTapped()
             }
             .buttonStyle(.borderedProminent)
@@ -138,11 +140,11 @@ struct CheckInCard: View {
     private var waitingForEveningView: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Label("Morning Check-In", systemImage: "checkmark.circle.fill")
+                Label("First Check-In", systemImage: "checkmark.circle.fill")
                     .font(.headline)
                     .foregroundStyle(.green)
 
-                Text("Come back this evening for your next check-in")
+                Text("Come back later for your second check-in")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -157,19 +159,19 @@ struct CheckInCard: View {
 
     private var eveningPromptView: some View {
         VStack(spacing: 12) {
-            Image(systemName: "moon.stars.fill")
+            Image(systemName: "checkmark.circle.badge.questionmark")
                 .font(.largeTitle)
                 .foregroundStyle(.purple)
 
-            Text("Good Evening!")
+            Text("Time for Check-In #2")
                 .font(.headline)
 
-            Text("Wrap up your day with an evening check-in")
+            Text("Wrap up your day with your second check-in")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            Button("Evening Check-In") {
+            Button("Second Check-In") {
                 onEveningCheckInTapped()
             }
             .buttonStyle(.borderedProminent)
@@ -185,7 +187,7 @@ struct CheckInCard: View {
                 .font(.headline)
                 .foregroundStyle(.green)
 
-            Text("Check back tomorrow morning!")
+            Text("See you next time!")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -198,23 +200,23 @@ struct CheckInCard: View {
                 .font(.largeTitle)
                 .foregroundStyle(.orange)
 
-            Text("Morning check-in window passed")
+            Text("First check-in window passed")
                 .font(.headline)
 
             if isEveningWindow {
-                Text("You can still do your evening check-in")
+                Text("You can still do your second check-in")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
-                Button("Evening Check-In") {
+                Button("Second Check-In") {
                     onEveningCheckInTapped()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.purple)
                 .controlSize(.regular)
             } else {
-                Text("Evening check-in available after 5 PM")
+                Text("Second check-in window opens later")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

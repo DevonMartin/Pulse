@@ -34,7 +34,7 @@ struct HealthMetrics: Sendable {
     /// Nil if no data available for this date.
     let activeCalories: Double?
 	
-	init(
+	nonisolated init(
 		date: Date,
 		restingHeartRate: Double? = nil,
 		hrv: Double? = nil,
@@ -86,5 +86,32 @@ extension HealthMetrics {
         sleepDuration != nil ||
         steps != nil ||
         activeCalories != nil
+    }
+
+    /// Merges new metrics into this one, only filling in nil fields.
+    /// Returns a new HealthMetrics with combined data and whether any fields were updated.
+    nonisolated func merging(with newer: HealthMetrics) -> (merged: HealthMetrics, didChange: Bool) {
+        let mergedRHR = restingHeartRate ?? newer.restingHeartRate
+        let mergedHRV = hrv ?? newer.hrv
+        let mergedSleep = sleepDuration ?? newer.sleepDuration
+        let mergedSteps = steps ?? newer.steps
+        let mergedCalories = activeCalories ?? newer.activeCalories
+
+        let didChange = (restingHeartRate == nil && mergedRHR != nil) ||
+                        (hrv == nil && mergedHRV != nil) ||
+                        (sleepDuration == nil && mergedSleep != nil) ||
+                        (steps == nil && mergedSteps != nil) ||
+                        (activeCalories == nil && mergedCalories != nil)
+
+        let merged = HealthMetrics(
+            date: date,
+            restingHeartRate: mergedRHR,
+            hrv: mergedHRV,
+            sleepDuration: mergedSleep,
+            steps: mergedSteps,
+            activeCalories: mergedCalories
+        )
+
+        return (merged, didChange)
     }
 }

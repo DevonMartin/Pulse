@@ -217,4 +217,143 @@ struct HealthMetricsTests {
 
         #expect(metrics1 != metrics2)
     }
+
+    // MARK: - Merging
+
+    @Test func mergingFillsNilFieldsFromNewer() {
+        let date = Date()
+        let existing = HealthMetrics(
+            date: date,
+            restingHeartRate: 62,
+            hrv: nil,
+            sleepDuration: nil,
+            steps: 5000,
+            activeCalories: nil
+        )
+        let newer = HealthMetrics(
+            date: date,
+            restingHeartRate: 65,
+            hrv: 45,
+            sleepDuration: 7 * 3600,
+            steps: 8000,
+            activeCalories: 350
+        )
+
+        let (merged, didChange) = existing.merging(with: newer)
+
+        #expect(didChange == true)
+        #expect(merged.restingHeartRate == 62) // Kept existing
+        #expect(merged.hrv == 45) // Filled from newer
+		#expect(merged.sleepDuration == 7.0 * 3600) // Filled from newer
+        #expect(merged.steps == 5000) // Kept existing
+        #expect(merged.activeCalories == 350) // Filled from newer
+    }
+
+    @Test func mergingDoesNotOverwriteExistingValues() {
+        let date = Date()
+        let existing = HealthMetrics(
+            date: date,
+            restingHeartRate: 62,
+            hrv: 50,
+            sleepDuration: 8 * 3600,
+            steps: 10000,
+            activeCalories: 400
+        )
+        let newer = HealthMetrics(
+            date: date,
+            restingHeartRate: 70,
+            hrv: 30,
+            sleepDuration: 6 * 3600,
+            steps: 5000,
+            activeCalories: 200
+        )
+
+        let (merged, didChange) = existing.merging(with: newer)
+
+        #expect(didChange == false)
+        #expect(merged.restingHeartRate == 62)
+        #expect(merged.hrv == 50)
+		#expect(merged.sleepDuration == 8.0 * 3600)
+        #expect(merged.steps == 10000)
+        #expect(merged.activeCalories == 400)
+    }
+
+    @Test func mergingReturnsDidChangeFalseWhenNoNewData() {
+        let date = Date()
+        let existing = HealthMetrics(
+            date: date,
+            restingHeartRate: 62,
+            hrv: nil,
+            sleepDuration: nil,
+            steps: nil,
+            activeCalories: nil
+        )
+        let newer = HealthMetrics(
+            date: date,
+            restingHeartRate: nil,
+            hrv: nil,
+            sleepDuration: nil,
+            steps: nil,
+            activeCalories: nil
+        )
+
+        let (merged, didChange) = existing.merging(with: newer)
+
+        #expect(didChange == false)
+        #expect(merged.restingHeartRate == 62)
+    }
+
+    @Test func mergingPreservesOriginalDate() {
+        let originalDate = Date()
+        let newerDate = Date().addingTimeInterval(3600)
+        let existing = HealthMetrics(
+            date: originalDate,
+            restingHeartRate: nil,
+            hrv: nil,
+            sleepDuration: nil,
+            steps: nil,
+            activeCalories: nil
+        )
+        let newer = HealthMetrics(
+            date: newerDate,
+            restingHeartRate: 65,
+            hrv: 45,
+            sleepDuration: nil,
+            steps: nil,
+            activeCalories: nil
+        )
+
+        let (merged, _) = existing.merging(with: newer)
+
+        #expect(merged.date == originalDate)
+    }
+
+    @Test func mergingHandlesPartialNewData() {
+        let date = Date()
+        let existing = HealthMetrics(
+            date: date,
+            restingHeartRate: nil,
+            hrv: nil,
+            sleepDuration: nil,
+            steps: nil,
+            activeCalories: nil
+        )
+        let newer = HealthMetrics(
+            date: date,
+            restingHeartRate: 62,
+            hrv: nil,
+            sleepDuration: 7 * 3600,
+            steps: nil,
+            activeCalories: nil
+        )
+
+        let (merged, didChange) = existing.merging(with: newer)
+
+        #expect(didChange == true)
+        #expect(merged.restingHeartRate == 62)
+        #expect(merged.hrv == nil)
+		#expect(merged.sleepDuration == 7.0 * 3600)
+        #expect(merged.steps == nil)
+        #expect(merged.activeCalories == nil)
+    }
 }

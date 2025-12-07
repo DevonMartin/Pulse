@@ -20,10 +20,56 @@ enum TimeWindows: Sendable {
     // These will eventually be read from UserDefaults in the App Group
 
     /// Hour when morning check-in window ends (default: 4 PM)
-    nonisolated static var morningWindowEndHour: Int { 16 }
+    /// For cross-day schedule (6 PM start): ends at 10 PM (22)
+    nonisolated static var morningWindowEndHour: Int {
+        #if DEBUG
+        if testingOverrideCrossDaySchedule {
+            return 22  // 10 PM for night shift schedule
+        }
+        #endif
+        return 16
+    }
 
     /// Hour when evening check-in window starts (default: 5 PM)
-    nonisolated static var eveningWindowStartHour: Int { 17 }
+    /// For cross-day schedule (6 PM start): starts at 11 PM (23)
+    nonisolated static var eveningWindowStartHour: Int {
+        #if DEBUG
+        if testingOverrideCrossDaySchedule {
+            return 23  // 11 PM for night shift schedule
+        }
+        #endif
+        return 17
+    }
+
+    // MARK: - Testing Overrides (DEBUG only)
+
+    #if DEBUG
+    /// Override for UI testing - forces morning window state
+    nonisolated static var testingOverrideMorningWindow: Bool? {
+        if CommandLine.arguments.contains("--morning-window") {
+            return true
+        } else if CommandLine.arguments.contains("--evening-window") {
+            return false
+        }
+        return nil
+    }
+
+    /// Override for UI testing - forces evening window state
+    nonisolated static var testingOverrideEveningWindow: Bool? {
+        if CommandLine.arguments.contains("--evening-window") {
+            return true
+        } else if CommandLine.arguments.contains("--morning-window") {
+            return false
+        }
+        return nil
+    }
+
+    /// Override for UI testing - simulates cross-day schedule (e.g., 6 PM - 6 AM)
+    /// Use --cross-day-schedule to test scenarios where user day starts at 6 PM
+    nonisolated static var testingOverrideCrossDaySchedule: Bool {
+        CommandLine.arguments.contains("--cross-day-schedule")
+    }
+    #endif
 
     // MARK: - Current State
 
@@ -32,11 +78,21 @@ enum TimeWindows: Sendable {
     }
 
     nonisolated static var isMorningWindow: Bool {
-        currentHour < morningWindowEndHour
+        #if DEBUG
+        if let override = testingOverrideMorningWindow {
+            return override
+        }
+        #endif
+        return currentHour < morningWindowEndHour
     }
 
     nonisolated static var isEveningWindow: Bool {
-        currentHour >= eveningWindowStartHour
+        #if DEBUG
+        if let override = testingOverrideEveningWindow {
+            return override
+        }
+        #endif
+        return currentHour >= eveningWindowStartHour
     }
 
     // MARK: - User Day Boundaries
@@ -44,7 +100,14 @@ enum TimeWindows: Sendable {
     /// The hour when a new "user day" begins.
     /// For default settings (midnight), this is 0.
     /// If user's first check-in window starts at 6 PM, this would be 18.
-    nonisolated static var userDayStartHour: Int { 0 }
+    nonisolated static var userDayStartHour: Int {
+        #if DEBUG
+        if testingOverrideCrossDaySchedule {
+            return 18  // 6 PM - simulates night shift schedule
+        }
+        #endif
+        return 0
+    }
 
     /// Returns the start of the current "user day".
     /// This accounts for user-defined day boundaries that may span calendar days.

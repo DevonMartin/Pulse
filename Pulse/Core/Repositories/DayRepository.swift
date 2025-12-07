@@ -178,11 +178,20 @@ actor MockDayRepository: DayRepositoryProtocol {
     var days: [Day] = []
     var shouldThrowError: Error?
 
+    /// Optional override for "current user day start" - if nil, uses TimeWindows
+    private let currentUserDayStartOverride: Date?
+
     /// Creates a mock repository, optionally pre-populated with sample data
-    init(withSampleData: Bool = false) {
+    init(withSampleData: Bool = false, currentUserDayStart: Date? = nil) {
+        self.currentUserDayStartOverride = currentUserDayStart
         if withSampleData {
             days = Self.generateSampleDays()
         }
+    }
+
+    /// The date to use for "current day" lookups
+    private var currentUserDayStart: Date {
+        currentUserDayStartOverride ?? TimeWindows.currentUserDayStart
     }
 
     /// Generates sample historical days for the past 14 days
@@ -230,7 +239,7 @@ actor MockDayRepository: DayRepositoryProtocol {
             return existing
         }
 
-        let newDay = Day(startDate: TimeWindows.currentUserDayStart)
+        let newDay = Day(startDate: currentUserDayStart)
         days.append(newDay)
         return newDay
     }
@@ -238,7 +247,6 @@ actor MockDayRepository: DayRepositoryProtocol {
     func getCurrentDayIfExists() async throws -> Day? {
         if let error = shouldThrowError { throw error }
 
-        let currentUserDayStart = TimeWindows.currentUserDayStart
         return days.first { $0.startDate == currentUserDayStart }
     }
 

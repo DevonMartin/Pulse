@@ -160,13 +160,13 @@ struct ReadinessScoreCard: View {
         let isMorningWindow = TimeWindows.isMorningWindow
 
         if !hasMorning && isMorningWindow {
-            // Morning window, no morning check-in yet
-            return "Complete your morning check-in to see your readiness score"
+            // First check-in window, no check-in yet
+            return "Complete your first check-in to see your readiness score"
         } else if !hasMorning && !isMorningWindow {
-            // Past morning window, missed morning check-in
-            return "Morning check-in window has passed. Check in tomorrow morning for your score."
+            // Past first check-in window, missed it
+            return "First check-in window has passed. Check in tomorrow for your score."
         } else {
-            // Has morning check-in but no score (shouldn't normally happen)
+            // Has first check-in but no score (shouldn't normally happen)
             return "Calculating your readiness score..."
         }
     }

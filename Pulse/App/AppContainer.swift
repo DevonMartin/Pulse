@@ -33,6 +33,9 @@ final class AppContainer {
     /// The readiness service that blends rules + ML for personalized scoring
     let readinessService: ReadinessService
 
+    /// The Day service for managing today's data and metrics updates
+    let dayService: DayService
+
     // MARK: - Repositories
 
     /// The Day repository for user days with check-in slots
@@ -49,6 +52,73 @@ final class AppContainer {
         #endif
     }
 
+    #if DEBUG
+    /// Returns true if running in UI testing mode
+    static var isUITesting: Bool {
+        CommandLine.arguments.contains("--uitesting")
+    }
+
+    /// UI testing check-in configuration
+    enum UITestCheckInConfig {
+        case noCheckIn
+        case noMorningCheckIn
+        case withMorningCheckIn
+        case bothComplete
+
+        static var current: UITestCheckInConfig {
+            if CommandLine.arguments.contains("--both-checkins-complete") {
+                return .bothComplete
+            } else if CommandLine.arguments.contains("--with-checkin") ||
+                      CommandLine.arguments.contains("--with-morning-checkin") {
+                return .withMorningCheckIn
+            } else if CommandLine.arguments.contains("--no-morning-checkin") {
+                return .noMorningCheckIn
+            } else {
+                return .noCheckIn
+            }
+        }
+    }
+
+    /// UI testing score range configuration
+    enum UITestScoreRange {
+        case poor       // 0-40
+        case moderate   // 41-60
+        case good       // 61-80 (default)
+        case excellent  // 81-100
+
+        static var current: UITestScoreRange {
+            if CommandLine.arguments.contains("--score-excellent") {
+                return .excellent
+            } else if CommandLine.arguments.contains("--score-moderate") {
+                return .moderate
+            } else if CommandLine.arguments.contains("--score-poor") {
+                return .poor
+            } else {
+                return .good
+            }
+        }
+
+        var score: Int {
+            switch self {
+            case .poor: return 35
+            case .moderate: return 55
+            case .good: return 75
+            case .excellent: return 90
+            }
+        }
+
+        /// Energy level (1-5) that corresponds to this score range
+        var energyLevel: Int {
+            switch self {
+            case .poor: return 2
+            case .moderate: return 3
+            case .good: return 4
+            case .excellent: return 5
+            }
+        }
+    }
+    #endif
+
     // MARK: - Initialization
 
     /// Creates the production container with real dependencies.
@@ -56,18 +126,20 @@ final class AppContainer {
     init(modelContainer: ModelContainer) {
         // Use mock in simulator (HealthKit auth doesn't work there),
         // real HealthKit on physical devices
+        let healthKit: HealthKitServiceProtocol
         if AppContainer.isSimulator {
             let mock = MockHealthKitService()
             mock.mockAuthorizationStatus = .notDetermined
-            self.healthKitService = mock
+            healthKit = mock
         } else if HKHealthStore.isHealthDataAvailable() {
-            self.healthKitService = HealthKitService()
+            healthKit = HealthKitService()
         } else {
             // iPad or device without HealthKit
             let mock = MockHealthKitService()
             mock.mockAuthorizationStatus = .unavailable
-            self.healthKitService = mock
+            healthKit = mock
         }
+        self.healthKitService = healthKit
 
         // Create the readiness calculator
         self.readinessCalculator = ReadinessCalculator()
@@ -75,8 +147,36 @@ final class AppContainer {
         // Create the readiness service with ML blending
         self.readinessService = ReadinessService(rulesCalculator: readinessCalculator)
 
+        #if DEBUG
+        // Use mock repository with test data when UI testing
+        if AppContainer.isUITesting {
+            let mockRepo = MockDayRepository()
+            self.dayRepository = mockRepo
+
+            // Create the Day service
+            self.dayService = DayService(
+                dayRepository: mockRepo,
+                healthKitService: healthKit,
+                readinessService: readinessService
+            )
+
+            // Set up test Day based on launch arguments
+            Task { @MainActor in
+                await Self.setupUITestDay(in: mockRepo)
+            }
+            return
+        }
+        #endif
+
         // Create repositories with the model container
         self.dayRepository = DayRepository(modelContainer: modelContainer)
+
+        // Create the Day service
+        self.dayService = DayService(
+            dayRepository: dayRepository,
+            healthKitService: healthKitService,
+            readinessService: readinessService
+        )
     }
 
     // MARK: - Sample Data
@@ -85,6 +185,11 @@ final class AppContainer {
     /// Only runs once per install (checks UserDefaults).
     func populateSampleDataIfNeeded() async {
         guard AppContainer.isSimulator else { return }
+
+        #if DEBUG
+        // Skip sample data during UI testing - we set up specific test data instead
+        if AppContainer.isUITesting { return }
+        #endif
 
         let key = "hasPopulatedSampleDataV2"  // Bumped version for Day-based data
         guard !UserDefaults.standard.bool(forKey: key) else { return }
@@ -188,11 +293,97 @@ final class AppContainer {
         healthKitService: HealthKitServiceProtocol,
         readinessCalculator: ReadinessCalculatorProtocol = ReadinessCalculator(),
         readinessService: ReadinessService? = nil,
-        dayRepository: DayRepositoryProtocol? = nil
+        dayRepository: DayRepositoryProtocol? = nil,
+        dayService: DayService? = nil
     ) {
         self.healthKitService = healthKitService
         self.readinessCalculator = readinessCalculator
-        self.readinessService = readinessService ?? ReadinessService(rulesCalculator: readinessCalculator)
-        self.dayRepository = dayRepository ?? MockDayRepository()
+        let resolvedReadinessService = readinessService ?? ReadinessService(rulesCalculator: readinessCalculator)
+        self.readinessService = resolvedReadinessService
+        let resolvedDayRepository = dayRepository ?? MockDayRepository()
+        self.dayRepository = resolvedDayRepository
+        self.dayService = dayService ?? DayService(
+            dayRepository: resolvedDayRepository,
+            healthKitService: healthKitService,
+            readinessService: resolvedReadinessService
+        )
     }
+
+    // MARK: - UI Testing Support
+
+    #if DEBUG
+    /// Sets up a Day in the mock repository based on UI test launch arguments.
+    private static func setupUITestDay(in repository: MockDayRepository) async {
+        let config = UITestCheckInConfig.current
+        let today = TimeWindows.currentUserDayStart
+
+        // Create health metrics for the test
+        let healthMetrics = HealthMetrics(
+            date: today,
+            restingHeartRate: 62,
+            hrv: 45,
+            sleepDuration: 7 * 3600,
+            steps: 8000,
+            activeCalories: 350
+        )
+
+        // Build the Day based on configuration
+        var firstCheckIn: CheckInSlot? = nil
+        var secondCheckIn: CheckInSlot? = nil
+        var readinessScore: ReadinessScore? = nil
+
+        switch config {
+        case .noCheckIn, .noMorningCheckIn:
+            // No check-ins - Day may or may not exist
+            // For noMorningCheckIn in evening, we still need a Day record
+            if config == .noMorningCheckIn {
+                let day = Day(startDate: today, healthMetrics: healthMetrics)
+                try? await repository.save(day)
+            }
+            return
+
+        case .withMorningCheckIn:
+            let energy = UITestScoreRange.current.energyLevel
+            firstCheckIn = CheckInSlot(energyLevel: energy)
+            // Use a pre-computed readiness score for UI testing
+            readinessScore = Self.makeTestReadinessScore(date: today, healthMetrics: healthMetrics, energyLevel: energy)
+
+        case .bothComplete:
+            let energy = UITestScoreRange.current.energyLevel
+            firstCheckIn = CheckInSlot(energyLevel: energy)
+            secondCheckIn = CheckInSlot(energyLevel: max(1, energy - 1))
+            readinessScore = Self.makeTestReadinessScore(date: today, healthMetrics: healthMetrics, energyLevel: energy)
+        }
+
+        let day = Day(
+            startDate: today,
+            firstCheckIn: firstCheckIn,
+            secondCheckIn: secondCheckIn,
+            healthMetrics: healthMetrics,
+            readinessScore: readinessScore
+        )
+
+        try? await repository.save(day)
+    }
+
+    /// Creates a test readiness score for UI testing (avoids async calculation).
+    private static func makeTestReadinessScore(date: Date, healthMetrics: HealthMetrics, energyLevel: Int) -> ReadinessScore {
+        let testScore = UITestScoreRange.current.score
+        // Energy level maps directly: 1=20, 2=40, 3=60, 4=80, 5=100
+        let energyScore = energyLevel * 20
+        return ReadinessScore(
+            date: date,
+            score: testScore,
+            breakdown: ReadinessBreakdown(
+                hrvScore: testScore - 5,
+                restingHeartRateScore: testScore + 3,
+                sleepScore: testScore + 5,
+                energyScore: energyScore
+            ),
+            confidence: .full,
+            healthMetrics: healthMetrics,
+            userEnergyLevel: energyLevel
+        )
+    }
+    #endif
 }
