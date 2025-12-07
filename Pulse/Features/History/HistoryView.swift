@@ -32,7 +32,7 @@ enum TimeRange: String, CaseIterable, Identifiable {
 /// The section currently being viewed in history.
 enum HistorySection: String, CaseIterable, Identifiable {
     case trends = "Trends"
-    case checkIns = "Check-ins"
+    case days = "Days"
 
     var id: String { rawValue }
 }
@@ -44,7 +44,7 @@ struct HistoryView: View {
     @State private var selectedTimeRange: TimeRange = .week
     @State private var selectedSection: HistorySection = .trends
     @State private var scores: [ReadinessScore] = []
-    @State private var checkIns: [CheckIn] = []
+    @State private var days: [Day] = []
     @State private var isLoading = true
 
     var body: some View {
@@ -88,15 +88,15 @@ struct HistoryView: View {
                             TrendsChartView(scores: scores, timeRange: selectedTimeRange)
                         }
 
-                    case .checkIns:
-                        if checkIns.isEmpty {
+                    case .days:
+                        if days.isEmpty {
                             emptyState(
-                                icon: "checkmark.circle",
-                                title: "No Check-ins Yet",
-                                message: "Your morning check-ins will appear here."
+                                icon: "calendar",
+                                title: "No Days Yet",
+                                message: "Your daily check-ins will appear here."
                             )
                         } else {
-                            CheckInHistoryList(checkIns: checkIns)
+                            DayHistoryList(days: days)
                         }
                     }
                 }
@@ -141,16 +141,16 @@ struct HistoryView: View {
 
     private func loadData() async {
         // Only show loading indicator on first load (when data is empty)
-        let showLoading = scores.isEmpty && checkIns.isEmpty
+        let showLoading = scores.isEmpty && days.isEmpty
         if showLoading {
             isLoading = true
         }
 
         async let scoresTask: () = loadScores()
-        async let checkInsTask: () = loadCheckIns()
+        async let daysTask: () = loadDays()
 
         await scoresTask
-        await checkInsTask
+        await daysTask
 
         isLoading = false
     }
@@ -159,20 +159,20 @@ struct HistoryView: View {
     private func loadDataAnimated() async {
         // Fetch the new data
         let newScores: [ReadinessScore]
-        let newCheckIns: [CheckIn]
+        let newDays: [Day]
 
         do {
             async let scoresResult = container.readinessScoreRepository.getScores(
                 from: selectedTimeRange.startDate,
                 to: Date()
             )
-            async let checkInsResult = container.checkInRepository.getCheckIns(
+            async let daysResult = container.dayRepository.getDays(
                 from: selectedTimeRange.startDate,
                 to: Date()
             )
 
             newScores = try await scoresResult
-            newCheckIns = try await checkInsResult
+            newDays = try await daysResult
         } catch {
             print("Failed to load data: \(error)")
             return
@@ -181,7 +181,7 @@ struct HistoryView: View {
         // Animate the state changes
         withAnimation(.easeInOut(duration: 0.3)) {
             scores = newScores
-            checkIns = newCheckIns
+            days = newDays
         }
     }
 
@@ -197,15 +197,15 @@ struct HistoryView: View {
         }
     }
 
-    private func loadCheckIns() async {
+    private func loadDays() async {
         do {
-            checkIns = try await container.checkInRepository.getCheckIns(
+            days = try await container.dayRepository.getDays(
                 from: selectedTimeRange.startDate,
                 to: Date()
             )
         } catch {
-            print("Failed to load check-ins: \(error)")
-            checkIns = []
+            print("Failed to load days: \(error)")
+            days = []
         }
     }
 }

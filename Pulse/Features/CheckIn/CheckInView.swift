@@ -7,11 +7,11 @@
 
 import SwiftUI
 
-/// The morning check-in view where users rate their energy level.
+/// The first check-in view where users rate their energy level.
 ///
 /// This captures the subjective component of our readiness data.
 /// When submitted, it also captures a health snapshot from HealthKit
-/// and calculates today's readiness score.
+/// and calculates the day's readiness score.
 struct CheckInView: View {
     @Environment(AppContainer.self) private var container
     @Environment(\.dismiss) private var dismiss
@@ -118,23 +118,23 @@ struct CheckInView: View {
             // Fetch today's health data for the snapshot
             let todayMetrics = try await container.healthKitService.fetchMetrics(for: Date())
 
-            // Create and save the check-in
-            let checkIn = CheckIn(
-                type: .morning,
-                energyLevel: selectedEnergy,
-                healthSnapshot: todayMetrics
-            )
+            // Get or create today's Day
+            var day = try await container.dayRepository.getCurrentDay()
 
-            try await container.checkInRepository.save(checkIn)
+            // Set the first check-in
+            day.firstCheckIn = CheckInSlot(energyLevel: selectedEnergy)
+            day.healthMetrics = todayMetrics
 
             // Calculate today's readiness score using blended rules + ML
             if let score = await container.readinessService.calculate(
                 from: todayMetrics,
                 energyLevel: selectedEnergy
             ) {
-                // Save the score
-                try await container.readinessScoreRepository.save(score)
+                day.readinessScore = score
             }
+
+            // Save the updated Day
+            try await container.dayRepository.save(day)
 
             onComplete?()
             dismiss()

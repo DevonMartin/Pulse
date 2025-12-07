@@ -136,7 +136,7 @@ struct ReadinessScoreTests {
         let breakdown = ReadinessBreakdown(hrvScore: 95, restingHeartRateScore: nil, sleepScore: nil, energyScore: nil)
         let score = ReadinessScore(score: 90, breakdown: breakdown, confidence: .limited)
 
-        #expect(score.recommendation.contains("challenging") || score.recommendation.contains("Great"))
+        #expect(score.recommendation.contains("best today"))
     }
 
     // MARK: - isToday Tests

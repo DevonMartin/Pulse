@@ -9,17 +9,16 @@ import SwiftUI
 
 /// A single contextual check-in card that shows the appropriate state based on:
 /// - Time of day (morning vs evening window)
-/// - Check-in completion status (morning done, evening done, both done)
+/// - Check-in completion status (first done, second done, both done)
 ///
 /// States:
 /// - `morningPending`: Morning window, no check-in yet
-/// - `waitingForEvening`: Morning done, waiting for evening window
+/// - `waitingForEvening`: First check-in done, waiting for evening window
 /// - `eveningPending`: Evening window, can check in
 /// - `allComplete`: Both check-ins done
-/// - `morningMissed`: Past morning window, no morning check-in
+/// - `morningMissed`: Past morning window, no first check-in
 struct CheckInCard: View {
-    let morningCheckIn: CheckIn?
-    let eveningCheckIn: CheckIn?
+    let day: Day?
     let isLoading: Bool
     let isMorningWindow: Bool
     let isEveningWindow: Bool
@@ -30,8 +29,8 @@ struct CheckInCard: View {
     private var cardState: CardState {
         if isLoading { return .loading }
 
-        let hasMorning = morningCheckIn != nil
-        let hasEvening = eveningCheckIn != nil
+        let hasMorning = day?.hasFirstCheckIn ?? false
+        let hasEvening = day?.hasSecondCheckIn ?? false
 
         // Evening done - show completion (regardless of morning status)
         if hasEvening {
@@ -150,8 +149,8 @@ struct CheckInCard: View {
 
             Spacer()
 
-            if let checkIn = morningCheckIn {
-                EnergyBadge(level: checkIn.energyLevel)
+            if let energyLevel = day?.firstCheckIn?.energyLevel {
+                EnergyBadge(level: energyLevel)
             }
         }
     }
@@ -273,8 +272,7 @@ private struct EnergyBadge: View {
 
 #Preview("Morning Pending") {
     CheckInCard(
-        morningCheckIn: nil,
-        eveningCheckIn: nil,
+        day: nil,
         isLoading: false,
         isMorningWindow: true,
         isEveningWindow: false,
@@ -286,8 +284,10 @@ private struct EnergyBadge: View {
 
 #Preview("Waiting for Evening") {
     CheckInCard(
-        morningCheckIn: CheckIn(type: .morning, energyLevel: 4, healthSnapshot: nil),
-        eveningCheckIn: nil,
+        day: Day(
+            startDate: Date(),
+            firstCheckIn: CheckInSlot(energyLevel: 4)
+        ),
         isLoading: false,
         isMorningWindow: false,
         isEveningWindow: false,
@@ -299,8 +299,10 @@ private struct EnergyBadge: View {
 
 #Preview("Evening Pending") {
     CheckInCard(
-        morningCheckIn: CheckIn(type: .morning, energyLevel: 4, healthSnapshot: nil),
-        eveningCheckIn: nil,
+        day: Day(
+            startDate: Date(),
+            firstCheckIn: CheckInSlot(energyLevel: 4)
+        ),
         isLoading: false,
         isMorningWindow: false,
         isEveningWindow: true,
@@ -312,8 +314,11 @@ private struct EnergyBadge: View {
 
 #Preview("All Complete") {
     CheckInCard(
-        morningCheckIn: CheckIn(type: .morning, energyLevel: 4, healthSnapshot: nil),
-        eveningCheckIn: CheckIn(type: .evening, energyLevel: 3, healthSnapshot: nil),
+        day: Day(
+            startDate: Date(),
+            firstCheckIn: CheckInSlot(energyLevel: 4),
+            secondCheckIn: CheckInSlot(energyLevel: 3)
+        ),
         isLoading: false,
         isMorningWindow: false,
         isEveningWindow: true,

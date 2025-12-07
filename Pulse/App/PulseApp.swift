@@ -28,8 +28,7 @@ struct PulseApp: App {
     init() {
         // Create the SwiftData schema with our entities
         let schema = Schema([
-            CheckInEntity.self,
-            HealthSnapshotEntity.self,
+            DayEntity.self,
             ReadinessScoreEntity.self,
         ])
         let modelConfiguration = ModelConfiguration(
@@ -97,17 +96,18 @@ struct PulseApp: App {
     }
 
     private func showAppropriateCheckIn() async {
-        // Check time window first
+        // Get current day's state
+        let currentDay = try? await container.dayRepository.getCurrentDayIfExists()
+
+        // Check time window and completion status
         if TimeWindows.isMorningWindow {
-            // Morning window: show morning check-in if not already done
-            let morningCheckIn = try? await container.checkInRepository.getTodaysCheckIn(type: .morning)
-            if morningCheckIn == nil {
+            // Morning window: show first check-in if not already done
+            if currentDay?.hasFirstCheckIn != true {
                 showingMorningCheckIn = true
             }
         } else if TimeWindows.isEveningWindow {
-            // Evening window: show evening check-in if not already done
-            let eveningCheckIn = try? await container.checkInRepository.getTodaysCheckIn(type: .evening)
-            if eveningCheckIn == nil {
+            // Evening window: show second check-in if not already done
+            if currentDay?.hasSecondCheckIn != true {
                 showingEveningCheckIn = true
             }
         }

@@ -17,10 +17,7 @@ import SwiftUI
 struct DashboardView: View {
     @Environment(AppContainer.self) private var container
 
-    @State private var morningCheckIn: CheckIn?
-    @State private var eveningCheckIn: CheckIn?
-    @State private var todaysMetrics: HealthMetrics?
-    @State private var readinessScore: ReadinessScore?
+    @State private var currentDay: Day?
     @State private var isLoading = true
     @State private var showingMorningCheckIn = false
     @State private var showingEveningCheckIn = false
@@ -35,14 +32,13 @@ struct DashboardView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     // Readiness score card (shown when we have a score)
-                    if let score = readinessScore {
+                    if let score = currentDay?.readinessScore {
                         ReadinessScoreCard(score: score)
                     }
 
                     // Single contextual check-in card
                     CheckInCard(
-                        morningCheckIn: morningCheckIn,
-                        eveningCheckIn: eveningCheckIn,
+                        day: currentDay,
                         isLoading: isLoading,
                         isMorningWindow: TimeWindows.isMorningWindow,
                         isEveningWindow: TimeWindows.isEveningWindow,
@@ -57,7 +53,7 @@ struct DashboardView: View {
                     )
 
                     // Today's metrics card
-                    TodaysMetricsCard(metrics: todaysMetrics)
+                    TodaysMetricsCard(metrics: currentDay?.healthMetrics)
 
                     // Error display
                     if let error = errorMessage {
@@ -113,17 +109,12 @@ struct DashboardView: View {
     private func loadData() async {
         errorMessage = nil
 
-        // Load check-ins and metrics concurrently
-        async let morningTask: () = loadMorningCheckIn()
-        async let eveningTask: () = loadEveningCheckIn()
-        async let metricsTask: () = loadTodaysMetrics()
-
-        await morningTask
-        await eveningTask
-        await metricsTask
-
-        // Calculate readiness score using blended rules + ML
-        await calculateAndSaveReadinessScore()
+        // Load current day
+        do {
+            currentDay = try await container.dayRepository.getCurrentDayIfExists()
+        } catch {
+            print("Failed to load current day: \(error)")
+        }
 
         // Update ML status
         await loadMLStatus()
@@ -135,62 +126,12 @@ struct DashboardView: View {
     }
 
     private func retrainMLModel() async {
-        // Fetch all historical check-ins for training
+        // Fetch all completed days for training
         do {
-            let allCheckIns = try await container.checkInRepository.getCheckIns(
-                from: Date.distantPast,
-                to: Date()
-            )
-            await container.readinessService.retrain(
-                with: allCheckIns,
-                healthKitService: container.healthKitService
-            )
+            let completedDays = try await container.dayRepository.getCompletedDays()
+            await container.readinessService.retrain(with: completedDays)
         } catch {
             print("Failed to retrain ML model: \(error)")
-        }
-    }
-
-    private func calculateAndSaveReadinessScore() async {
-        // Use the blended readiness service (rules + ML)
-        guard let score = await container.readinessService.calculate(
-            from: todaysMetrics,
-            energyLevel: morningCheckIn?.energyLevel
-        ) else {
-            readinessScore = nil
-            return
-        }
-
-        readinessScore = score
-
-        // Save the score for historical tracking
-        do {
-            try await container.readinessScoreRepository.save(score)
-        } catch {
-            print("Failed to save readiness score: \(error)")
-        }
-    }
-
-    private func loadMorningCheckIn() async {
-        do {
-            morningCheckIn = try await container.checkInRepository.getTodaysCheckIn(type: .morning)
-        } catch {
-            print("Failed to load morning check-in: \(error)")
-        }
-    }
-
-    private func loadEveningCheckIn() async {
-        do {
-            eveningCheckIn = try await container.checkInRepository.getTodaysCheckIn(type: .evening)
-        } catch {
-            print("Failed to load evening check-in: \(error)")
-        }
-    }
-
-    private func loadTodaysMetrics() async {
-        do {
-            todaysMetrics = try await container.healthKitService.fetchMetrics(for: Date())
-        } catch {
-            print("Failed to load today's metrics: \(error)")
         }
     }
 
@@ -202,10 +143,10 @@ struct DashboardView: View {
 
     private func updateWidgetData() {
         let data = WidgetData(
-            score: readinessScore?.score,
-			scoreDescription: readinessScore?.scoreDescription,
-            morningCheckInComplete: morningCheckIn != nil,
-            eveningCheckInComplete: eveningCheckIn != nil,
+            score: currentDay?.readinessScore?.score,
+            scoreDescription: currentDay?.readinessScore?.scoreDescription,
+            morningCheckInComplete: currentDay?.hasFirstCheckIn ?? false,
+            eveningCheckInComplete: currentDay?.hasSecondCheckIn ?? false,
             personalizationDays: mlExampleCount,
             personalizationTarget: 30,
             lastUpdated: Date()

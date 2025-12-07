@@ -22,11 +22,10 @@ protocol ReadinessServiceProtocol: Sendable {
     /// - Returns: A ReadinessScore with breakdown and confidence
     func calculate(from metrics: HealthMetrics?, energyLevel: Int?) async -> ReadinessScore?
 
-    /// Triggers model retraining with the latest data.
+    /// Triggers model retraining with completed Days.
     ///
-    /// - Parameter checkIns: All historical check-ins
-    /// - Parameter healthKitService: Service to fetch metrics
-    func retrain(with checkIns: [CheckIn], healthKitService: HealthKitServiceProtocol) async
+    /// - Parameter days: All completed Days (both check-ins done)
+    func retrain(with days: [Day]) async
 
     /// Returns the current ML blend weight (0-1).
     var mlWeight: Double { get async }
@@ -137,14 +136,13 @@ actor ReadinessService: ReadinessServiceProtocol {
         )
     }
 
-    func retrain(with checkIns: [CheckIn], healthKitService: HealthKitServiceProtocol) async {
+    func retrain(with days: [Day]) async {
         // Get current example count to determine normalization strategy
         let currentCount = await mlModel.trainingExampleCount
 
         // Collect training data with appropriate normalization
         let examples = await trainingDataCollector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService,
+            from: days,
             currentExampleCount: currentCount
         )
 
@@ -210,8 +208,8 @@ actor MockReadinessService: ReadinessServiceProtocol {
         )
     }
 
-    func retrain(with checkIns: [CheckIn], healthKitService: HealthKitServiceProtocol) async {
-        mockExampleCount = checkIns.count / 2  // Assume half have both AM/PM
+    func retrain(with days: [Day]) async {
+        mockExampleCount = days.filter { $0.isComplete }.count
     }
 
     var mlWeight: Double {

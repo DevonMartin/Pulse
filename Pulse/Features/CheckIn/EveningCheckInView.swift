@@ -7,12 +7,12 @@
 
 import SwiftUI
 
-/// The evening check-in flow where users rate their energy throughout the day.
+/// The second check-in flow where users rate their energy throughout the day.
 ///
 /// This captures a retrospective assessment of how energetic the user felt
 /// during the day (not how tired they are now). This data is used:
 /// - As training labels for the personalized readiness model
-/// - To validate how accurate the morning's readiness prediction was
+/// - To validate how accurate the first check-in's readiness prediction was
 struct EveningCheckInView: View {
     @Environment(AppContainer.self) private var container
     @Environment(\.dismiss) private var dismiss
@@ -78,7 +78,7 @@ struct EveningCheckInView: View {
 
             // Submit button
             Button {
-                Task { await submitEveningCheckIn() }
+                Task { await submitSecondCheckIn() }
             } label: {
                 if isSubmitting {
                     ProgressView()
@@ -111,20 +111,19 @@ struct EveningCheckInView: View {
 
     // MARK: - Actions
 
-    private func submitEveningCheckIn() async {
+    private func submitSecondCheckIn() async {
         isSubmitting = true
         errorMessage = nil
 
         do {
-            // Evening check-in captures how the day went
-            // This data is used for ML training (blended with morning energy as label)
-            let checkIn = CheckIn(
-                type: .evening,
-                energyLevel: selectedEnergy,
-                healthSnapshot: nil
-            )
+            // Get the current Day (should already exist from first check-in)
+            var day = try await container.dayRepository.getCurrentDay()
 
-            try await container.checkInRepository.save(checkIn)
+            // Set the second check-in
+            day.secondCheckIn = CheckInSlot(energyLevel: selectedEnergy)
+
+            // Save the updated Day
+            try await container.dayRepository.save(day)
 
             onComplete?()
             dismiss()

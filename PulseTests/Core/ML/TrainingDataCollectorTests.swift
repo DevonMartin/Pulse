@@ -12,7 +12,7 @@ import Foundation
 /// Tests for the TrainingDataCollector.
 ///
 /// Verifies:
-/// 1. Pairing of morning and evening check-ins
+/// 1. Collection of training data from complete Days
 /// 2. Label calculation (blended energy)
 /// 3. Filtering of incomplete days
 /// 4. Date sorting
@@ -21,8 +21,8 @@ struct TrainingDataCollectorTests {
 
     // MARK: - Helper
 
-    /// Creates a health snapshot with enough features to pass the minimum threshold
-    private func makeSnapshot(for date: Date) -> HealthMetrics {
+    /// Creates a health metrics with enough features to pass the minimum threshold
+    private func makeMetrics(for date: Date) -> HealthMetrics {
         HealthMetrics(
             date: date,
             restingHeartRate: 60,
@@ -31,50 +31,67 @@ struct TrainingDataCollectorTests {
         )
     }
 
-    // MARK: - Pairing Tests
+    /// Creates a complete Day with both check-ins
+    private func makeCompleteDay(
+        date: Date,
+        firstEnergy: Int = 3,
+        secondEnergy: Int = 4,
+        metrics: HealthMetrics? = nil
+    ) -> Day {
+        Day(
+            startDate: date,
+            firstCheckIn: CheckInSlot(energyLevel: firstEnergy),
+            secondCheckIn: CheckInSlot(energyLevel: secondEnergy),
+            healthMetrics: metrics ?? makeMetrics(for: date)
+        )
+    }
+
+    /// Creates an incomplete Day with only first check-in
+    private func makeIncompleteDay(
+        date: Date,
+        firstEnergy: Int = 3,
+        metrics: HealthMetrics? = nil
+    ) -> Day {
+        Day(
+            startDate: date,
+            firstCheckIn: CheckInSlot(energyLevel: firstEnergy),
+            secondCheckIn: nil,
+            healthMetrics: metrics ?? makeMetrics(for: date)
+        )
+    }
+
+    // MARK: - Collection Tests
 
     @Test func collectsOnlyCompleteDays() async {
         let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
 
-        let checkIns = [
-            // Complete day (yesterday)
-            CheckIn(timestamp: yesterday, type: .morning, energyLevel: 4, healthSnapshot: makeSnapshot(for: yesterday)),
-            CheckIn(timestamp: yesterday.addingTimeInterval(12 * 3600), type: .evening, energyLevel: 3, healthSnapshot: nil),
-            // Incomplete day (today - only morning)
-            CheckIn(timestamp: today, type: .morning, energyLevel: 5, healthSnapshot: makeSnapshot(for: today))
+        let days = [
+            makeCompleteDay(date: yesterday),  // Complete
+            makeIncompleteDay(date: today)     // Incomplete
         ]
 
-        let examples = await collector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService
-        )
+        let examples = await collector.collectTrainingData(from: days)
 
         #expect(examples.count == 1) // Only yesterday is complete
     }
 
     @Test func collectsMultipleCompleteDays() async {
         let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
-        var checkIns: [CheckIn] = []
+        var days: [Day] = []
         for dayOffset in 1...5 {
             let date = calendar.date(byAdding: .day, value: -dayOffset, to: today)!
-            checkIns.append(CheckIn(timestamp: date, type: .morning, energyLevel: 3, healthSnapshot: makeSnapshot(for: date)))
-            checkIns.append(CheckIn(timestamp: date.addingTimeInterval(12 * 3600), type: .evening, energyLevel: 4, healthSnapshot: nil))
+            days.append(makeCompleteDay(date: date))
         }
 
-        let examples = await collector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService
-        )
+        let examples = await collector.collectTrainingData(from: days)
 
         #expect(examples.count == 5)
     }
@@ -83,24 +100,19 @@ struct TrainingDataCollectorTests {
 
     @Test func labelIsBlendedEnergy() async {
         let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
 
-        // Morning energy: 3, Evening energy: 5
+        // First energy: 3, Second energy: 5
         // Blended: (3 * 0.4) + (5 * 0.6) = 1.2 + 3.0 = 4.2
         // Scaled: 4.2 * 20 = 84
-        let checkIns = [
-            CheckIn(timestamp: yesterday, type: .morning, energyLevel: 3, healthSnapshot: makeSnapshot(for: yesterday)),
-            CheckIn(timestamp: yesterday.addingTimeInterval(12 * 3600), type: .evening, energyLevel: 5, healthSnapshot: nil)
+        let days = [
+            makeCompleteDay(date: yesterday, firstEnergy: 3, secondEnergy: 5)
         ]
 
-        let examples = await collector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService
-        )
+        let examples = await collector.collectTrainingData(from: days)
 
         #expect(examples.count == 1)
         #expect(examples[0].label == 84.0)
@@ -108,28 +120,20 @@ struct TrainingDataCollectorTests {
 
     @Test func labelRangeIsCorrect() async {
         let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-
-        // Test minimum (1, 1) and maximum (5, 5)
         let day1 = calendar.date(byAdding: .day, value: -1, to: today)!
         let day2 = calendar.date(byAdding: .day, value: -2, to: today)!
 
-        let checkIns = [
+        let days = [
             // Minimum: (1 * 0.4) + (1 * 0.6) = 1.0 * 20 = 20
-            CheckIn(timestamp: day1, type: .morning, energyLevel: 1, healthSnapshot: makeSnapshot(for: day1)),
-            CheckIn(timestamp: day1.addingTimeInterval(12 * 3600), type: .evening, energyLevel: 1, healthSnapshot: nil),
+            makeCompleteDay(date: day1, firstEnergy: 1, secondEnergy: 1),
             // Maximum: (5 * 0.4) + (5 * 0.6) = 5.0 * 20 = 100
-            CheckIn(timestamp: day2, type: .morning, energyLevel: 5, healthSnapshot: makeSnapshot(for: day2)),
-            CheckIn(timestamp: day2.addingTimeInterval(12 * 3600), type: .evening, energyLevel: 5, healthSnapshot: nil)
+            makeCompleteDay(date: day2, firstEnergy: 5, secondEnergy: 5)
         ]
 
-        let examples = await collector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService
-        )
+        let examples = await collector.collectTrainingData(from: days)
 
         let labels = examples.map { $0.label }.sorted()
         #expect(labels.contains(20.0)) // Minimum
@@ -140,23 +144,18 @@ struct TrainingDataCollectorTests {
 
     @Test func examplesAreSortedByDate() async {
         let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
-        // Add check-ins in random order
-        var checkIns: [CheckIn] = []
+        // Add days in random order
+        var days: [Day] = []
         for dayOffset in [3, 1, 5, 2, 4] { // Random order
             let date = calendar.date(byAdding: .day, value: -dayOffset, to: today)!
-            checkIns.append(CheckIn(timestamp: date, type: .morning, energyLevel: 3, healthSnapshot: makeSnapshot(for: date)))
-            checkIns.append(CheckIn(timestamp: date.addingTimeInterval(12 * 3600), type: .evening, energyLevel: 4, healthSnapshot: nil))
+            days.append(makeCompleteDay(date: date))
         }
 
-        let examples = await collector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService
-        )
+        let examples = await collector.collectTrainingData(from: days)
 
         // Verify sorted (oldest first)
         for i in 1..<examples.count {
@@ -166,33 +165,28 @@ struct TrainingDataCollectorTests {
 
     // MARK: - Feature Extraction Tests
 
-    @Test func usesHealthSnapshotFromMorningCheckIn() async {
+    @Test func usesHealthMetricsFromDay() async {
         let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
 
-        let snapshot = HealthMetrics(
+        let metrics = HealthMetrics(
             date: yesterday,
             restingHeartRate: 55,
             hrv: 70,
             sleepDuration: 8 * 3600
         )
 
-        let checkIns = [
-            CheckIn(timestamp: yesterday, type: .morning, energyLevel: 4, healthSnapshot: snapshot),
-            CheckIn(timestamp: yesterday.addingTimeInterval(12 * 3600), type: .evening, energyLevel: 4, healthSnapshot: nil)
+        let days = [
+            makeCompleteDay(date: yesterday, metrics: metrics)
         ]
 
-        let examples = await collector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService
-        )
+        let examples = await collector.collectTrainingData(from: days)
 
         #expect(examples.count == 1)
-        // Verify features were extracted from the snapshot
+        // Verify features were extracted from the metrics
         #expect(examples[0].features.hrvNormalized != nil)
         #expect(examples[0].features.rhrNormalized != nil)
         #expect(examples[0].features.sleepNormalized != nil)
@@ -200,29 +194,24 @@ struct TrainingDataCollectorTests {
 
     @Test func filtersExamplesWithInsufficientFeatures() async {
         let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
 
-        // Snapshot with no features (only date)
-        let emptySnapshot = HealthMetrics(
+        // Metrics with no features (only date)
+        let emptyMetrics = HealthMetrics(
             date: yesterday,
             restingHeartRate: nil,
             hrv: nil,
             sleepDuration: nil
         )
 
-        let checkIns = [
-            CheckIn(timestamp: yesterday, type: .morning, energyLevel: 4, healthSnapshot: emptySnapshot),
-            CheckIn(timestamp: yesterday.addingTimeInterval(12 * 3600), type: .evening, energyLevel: 4, healthSnapshot: nil)
+        let days = [
+            makeCompleteDay(date: yesterday, metrics: emptyMetrics)
         ]
 
-        let examples = await collector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService
-        )
+        let examples = await collector.collectTrainingData(from: days)
 
         // Should be filtered out due to insufficient features (only dayOfWeek = 1 feature)
         #expect(examples.count == 0)
@@ -230,48 +219,26 @@ struct TrainingDataCollectorTests {
 
     // MARK: - Empty Input Tests
 
-    @Test func emptyCheckInsReturnsEmptyExamples() async {
+    @Test func emptyDaysReturnsEmptyExamples() async {
         let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
 
-        let examples = await collector.collectTrainingData(
-            from: [],
-            healthKitService: healthKitService
-        )
+        let examples = await collector.collectTrainingData(from: [])
 
         #expect(examples.isEmpty)
     }
 
-    @Test func onlyMorningCheckInsReturnsEmpty() async {
+    @Test func onlyIncompleteDaysReturnsEmpty() async {
         let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
 
-        let checkIns = [
-            CheckIn(timestamp: Date(), type: .morning, energyLevel: 3, healthSnapshot: nil),
-            CheckIn(timestamp: Date().addingTimeInterval(-86400), type: .morning, energyLevel: 4, healthSnapshot: nil)
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        let days = [
+            makeIncompleteDay(date: today),
+            makeIncompleteDay(date: calendar.date(byAdding: .day, value: -1, to: today)!)
         ]
 
-        let examples = await collector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService
-        )
-
-        #expect(examples.isEmpty)
-    }
-
-    @Test func onlyEveningCheckInsReturnsEmpty() async {
-        let collector = TrainingDataCollector()
-        let healthKitService = MockHealthKitService()
-
-        let checkIns = [
-            CheckIn(timestamp: Date(), type: .evening, energyLevel: 3, healthSnapshot: nil),
-            CheckIn(timestamp: Date().addingTimeInterval(-86400), type: .evening, energyLevel: 4, healthSnapshot: nil)
-        ]
-
-        let examples = await collector.collectTrainingData(
-            from: checkIns,
-            healthKitService: healthKitService
-        )
+        let examples = await collector.collectTrainingData(from: days)
 
         #expect(examples.isEmpty)
     }
