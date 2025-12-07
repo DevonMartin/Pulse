@@ -157,9 +157,11 @@ private struct DayCard: View {
 
                 Spacer()
 
-                // Readiness score if available
+                // Readiness score badge (or placeholder for alignment)
                 if let score = day.readinessScore {
                     ReadinessScoreBadge(score: score.score)
+                } else {
+                    PlaceholderScoreBadge()
                 }
 
                 // Expand chevron - red if no health data
@@ -218,9 +220,7 @@ private struct CheckInSlotRow: View {
             if let slot = slot {
                 EnergyBadge(level: slot.energyLevel)
             } else {
-                Text("--")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                PlaceholderEnergyBadge()
             }
         }
     }
@@ -237,16 +237,20 @@ private struct ReadinessScoreBadge: View {
             .fontWeight(.bold)
             .foregroundStyle(.white)
             .frame(width: 44, height: 44)
-            .background(Circle().fill(scoreColor))
+            .background(Circle().fill(ReadinessStyles.color(for: score)))
     }
+}
 
-    private var scoreColor: Color {
-        switch score {
-        case 80...100: return .green
-        case 60..<80: return .yellow
-        case 40..<60: return .orange
-        default: return .red
-        }
+// MARK: - Placeholder Score Badge
+
+private struct PlaceholderScoreBadge: View {
+    var body: some View {
+        Text("--")
+            .font(.title3)
+            .fontWeight(.bold)
+            .foregroundStyle(.secondary)
+            .frame(width: 44, height: 44)
+            .background(Circle().fill(Color(.tertiarySystemFill)))
     }
 }
 
@@ -278,6 +282,24 @@ private struct EnergyBadge: View {
         case 5: return .mint
         default: return .gray
         }
+    }
+}
+
+// MARK: - Placeholder Energy Badge
+
+private struct PlaceholderEnergyBadge: View {
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 8))
+            Text("--")
+                .font(.caption2)
+                .fontWeight(.semibold)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color(.tertiarySystemFill)))
     }
 }
 

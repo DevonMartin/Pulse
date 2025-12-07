@@ -29,7 +29,6 @@ struct PulseApp: App {
         // Create the SwiftData schema with our entities
         let schema = Schema([
             DayEntity.self,
-            ReadinessScoreEntity.self,
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

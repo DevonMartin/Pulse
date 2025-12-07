@@ -31,9 +31,9 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Readiness score card (shown when we have a score)
-                    if let score = currentDay?.readinessScore {
-                        ReadinessScoreCard(score: score)
+                    // Readiness score card (always shown when we have a day)
+                    if let day = currentDay {
+                        ReadinessScoreCard(day: day)
                     }
 
                     // Single contextual check-in card

@@ -38,9 +38,6 @@ final class AppContainer {
     /// The Day repository for user days with check-in slots
     let dayRepository: DayRepositoryProtocol
 
-    /// The readiness score repository for historical data
-    let readinessScoreRepository: ReadinessScoreRepositoryProtocol
-
     // MARK: - Environment Detection
 
     /// Returns true if running in the iOS Simulator
@@ -80,7 +77,6 @@ final class AppContainer {
 
         // Create repositories with the model container
         self.dayRepository = DayRepository(modelContainer: modelContainer)
-        self.readinessScoreRepository = ReadinessScoreRepository(modelContainer: modelContainer)
     }
 
     // MARK: - Sample Data
@@ -192,13 +188,11 @@ final class AppContainer {
         healthKitService: HealthKitServiceProtocol,
         readinessCalculator: ReadinessCalculatorProtocol = ReadinessCalculator(),
         readinessService: ReadinessService? = nil,
-        dayRepository: DayRepositoryProtocol? = nil,
-        readinessScoreRepository: ReadinessScoreRepositoryProtocol? = nil
+        dayRepository: DayRepositoryProtocol? = nil
     ) {
         self.healthKitService = healthKitService
         self.readinessCalculator = readinessCalculator
         self.readinessService = readinessService ?? ReadinessService(rulesCalculator: readinessCalculator)
         self.dayRepository = dayRepository ?? MockDayRepository()
-        self.readinessScoreRepository = readinessScoreRepository ?? MockReadinessScoreRepository()
     }
 }

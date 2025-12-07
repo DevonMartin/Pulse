@@ -29,21 +29,12 @@ enum TimeRange: String, CaseIterable, Identifiable {
     }
 }
 
-/// The section currently being viewed in history.
-enum HistorySection: String, CaseIterable, Identifiable {
-    case trends = "Trends"
-    case days = "Days"
-
-    var id: String { rawValue }
-}
-
-/// Shows historical readiness trends and check-in history.
+/// Shows historical readiness trends and daily check-in history.
+/// Combines summary stats, chart, and day cards in a single scrollable view.
 struct HistoryView: View {
     @Environment(AppContainer.self) private var container
 
     @State private var selectedTimeRange: TimeRange = .week
-    @State private var selectedSection: HistorySection = .trends
-    @State private var scores: [ReadinessScore] = []
     @State private var days: [Day] = []
     @State private var isLoading = true
 
@@ -59,45 +50,26 @@ struct HistoryView: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
                 .padding(.top, 8)
-
-                // Section picker
-                Picker("Section", selection: $selectedSection) {
-                    ForEach(HistorySection.allCases) { section in
-                        Text(section.rawValue).tag(section)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 12)
+                .padding(.bottom, 12)
 
                 // Content
                 if isLoading {
                     Spacer()
                     ProgressView("Loading history...")
                     Spacer()
+                } else if days.isEmpty {
+                    emptyState
                 } else {
-                    switch selectedSection {
-                    case .trends:
-                        if scores.isEmpty {
-                            emptyState(
-                                icon: "chart.line.uptrend.xyaxis",
-                                title: "No Trends Yet",
-                                message: "Complete daily check-ins to see your readiness trends over time."
-                            )
-                        } else {
-                            TrendsChartView(scores: scores, timeRange: selectedTimeRange)
-                        }
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            // Summary stats and chart
+                            TrendsChartView(days: days, timeRange: selectedTimeRange)
 
-                    case .days:
-                        if days.isEmpty {
-                            emptyState(
-                                icon: "calendar",
-                                title: "No Days Yet",
-                                message: "Your daily check-ins will appear here."
-                            )
-                        } else {
+                            // Day cards list
                             DayHistoryList(days: days)
                         }
+                        .padding(.horizontal)
+                        .padding(.bottom)
                     }
                 }
             }
@@ -118,17 +90,17 @@ struct HistoryView: View {
 
     // MARK: - Empty State
 
-    private func emptyState(icon: String, title: String, message: String) -> some View {
+    private var emptyState: some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: icon)
+            Image(systemName: "calendar")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
 
-            Text(title)
+            Text("No History Yet")
                 .font(.headline)
 
-            Text(message)
+            Text("Complete daily check-ins to see your readiness trends over time.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -140,64 +112,11 @@ struct HistoryView: View {
     // MARK: - Data Loading
 
     private func loadData() async {
-        // Only show loading indicator on first load (when data is empty)
-        let showLoading = scores.isEmpty && days.isEmpty
+        let showLoading = days.isEmpty
         if showLoading {
             isLoading = true
         }
 
-        async let scoresTask: () = loadScores()
-        async let daysTask: () = loadDays()
-
-        await scoresTask
-        await daysTask
-
-        isLoading = false
-    }
-
-    /// Loads data with animation for smoother transitions when changing time range
-    private func loadDataAnimated() async {
-        // Fetch the new data
-        let newScores: [ReadinessScore]
-        let newDays: [Day]
-
-        do {
-            async let scoresResult = container.readinessScoreRepository.getScores(
-                from: selectedTimeRange.startDate,
-                to: Date()
-            )
-            async let daysResult = container.dayRepository.getDays(
-                from: selectedTimeRange.startDate,
-                to: Date()
-            )
-
-            newScores = try await scoresResult
-            newDays = try await daysResult
-        } catch {
-            print("Failed to load data: \(error)")
-            return
-        }
-
-        // Animate the state changes
-        withAnimation(.easeInOut(duration: 0.3)) {
-            scores = newScores
-            days = newDays
-        }
-    }
-
-    private func loadScores() async {
-        do {
-            scores = try await container.readinessScoreRepository.getScores(
-                from: selectedTimeRange.startDate,
-                to: Date()
-            )
-        } catch {
-            print("Failed to load scores: \(error)")
-            scores = []
-        }
-    }
-
-    private func loadDays() async {
         do {
             days = try await container.dayRepository.getDays(
                 from: selectedTimeRange.startDate,
@@ -206,6 +125,24 @@ struct HistoryView: View {
         } catch {
             print("Failed to load days: \(error)")
             days = []
+        }
+
+        isLoading = false
+    }
+
+    /// Loads data with animation for smoother transitions when changing time range
+    private func loadDataAnimated() async {
+        do {
+            let newDays = try await container.dayRepository.getDays(
+                from: selectedTimeRange.startDate,
+                to: Date()
+            )
+
+            withAnimation(.easeInOut(duration: 0.3)) {
+                days = newDays
+            }
+        } catch {
+            print("Failed to load data: \(error)")
         }
     }
 }
