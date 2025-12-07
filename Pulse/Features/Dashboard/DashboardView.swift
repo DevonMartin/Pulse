@@ -18,6 +18,7 @@ struct DashboardView: View {
     @Environment(AppContainer.self) private var container
 
     @State private var currentDay: Day?
+    @State private var todayMetrics: HealthMetrics?
     @State private var isLoading = true
     @State private var showingMorningCheckIn = false
     @State private var showingEveningCheckIn = false
@@ -31,10 +32,8 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Readiness score card (always shown when we have a day)
-                    if let day = currentDay {
-                        ReadinessScoreCard(day: day)
-                    }
+                    // Readiness score card (always shown - uses current day or placeholder)
+                    ReadinessScoreCard(day: currentDay ?? Day(startDate: Date()))
 
                     // Single contextual check-in card
                     CheckInCard(
@@ -52,8 +51,8 @@ struct DashboardView: View {
                         mlWeight: mlWeight
                     )
 
-                    // Today's metrics card
-                    TodaysMetricsCard(metrics: currentDay?.healthMetrics)
+                    // Today's metrics card (prefer Day's metrics if available, otherwise fetch from HealthKit)
+                    TodaysMetricsCard(metrics: currentDay?.healthMetrics ?? todayMetrics)
 
                     // Error display
                     if let error = errorMessage {
@@ -114,6 +113,15 @@ struct DashboardView: View {
             currentDay = try await container.dayRepository.getCurrentDayIfExists()
         } catch {
             print("Failed to load current day: \(error)")
+        }
+
+        // Fetch today's metrics from HealthKit (used when no Day exists yet)
+        if currentDay?.healthMetrics == nil {
+            do {
+                todayMetrics = try await container.healthKitService.fetchMetrics(for: Date())
+            } catch {
+                print("Failed to fetch today's metrics: \(error)")
+            }
         }
 
         // Update ML status
