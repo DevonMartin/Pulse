@@ -88,20 +88,25 @@ extension HealthMetrics {
         activeCalories != nil
     }
 
-    /// Merges new metrics into this one, only filling in nil fields.
+    /// Merges new metrics into this one.
+    /// - Recovery metrics (RHR, HRV, sleep): only fills in nil fields (these are "fixed" morning values)
+    /// - Activity metrics (steps, calories): takes the maximum value (these accumulate throughout the day)
     /// Returns a new HealthMetrics with combined data and whether any fields were updated.
     nonisolated func merging(with newer: HealthMetrics) -> (merged: HealthMetrics, didChange: Bool) {
+        // Recovery metrics: keep existing if available (these don't change after morning)
         let mergedRHR = restingHeartRate ?? newer.restingHeartRate
         let mergedHRV = hrv ?? newer.hrv
         let mergedSleep = sleepDuration ?? newer.sleepDuration
-        let mergedSteps = steps ?? newer.steps
-        let mergedCalories = activeCalories ?? newer.activeCalories
+
+        // Activity metrics: take max value (these accumulate throughout the day)
+        let mergedSteps = maxOptional(steps, newer.steps)
+        let mergedCalories = maxOptional(activeCalories, newer.activeCalories)
 
         let didChange = (restingHeartRate == nil && mergedRHR != nil) ||
                         (hrv == nil && mergedHRV != nil) ||
                         (sleepDuration == nil && mergedSleep != nil) ||
-                        (steps == nil && mergedSteps != nil) ||
-                        (activeCalories == nil && mergedCalories != nil)
+                        (mergedSteps != steps) ||
+                        (mergedCalories != activeCalories)
 
         let merged = HealthMetrics(
             date: date,
@@ -113,5 +118,37 @@ extension HealthMetrics {
         )
 
         return (merged, didChange)
+    }
+
+    /// Merges only activity metrics (steps, calories) from newer metrics.
+    /// Recovery metrics (RHR, HRV, sleep) are preserved from self.
+    /// Returns a new HealthMetrics with combined data and whether any fields were updated.
+    nonisolated func mergingActivityOnly(with newer: HealthMetrics) -> (merged: HealthMetrics, didChange: Bool) {
+        // Activity metrics: take max value (these accumulate throughout the day)
+        let mergedSteps = maxOptional(steps, newer.steps)
+        let mergedCalories = maxOptional(activeCalories, newer.activeCalories)
+
+        let didChange = (mergedSteps != steps) || (mergedCalories != activeCalories)
+
+        let merged = HealthMetrics(
+            date: date,
+            restingHeartRate: restingHeartRate,  // Keep existing
+            hrv: hrv,                            // Keep existing
+            sleepDuration: sleepDuration,        // Keep existing
+            steps: mergedSteps,
+            activeCalories: mergedCalories
+        )
+
+        return (merged, didChange)
+    }
+
+    /// Returns the maximum of two optional values, preferring non-nil values.
+    private nonisolated func maxOptional<T: Comparable>(_ a: T?, _ b: T?) -> T? {
+        switch (a, b) {
+        case let (a?, b?): return max(a, b)
+        case let (a?, nil): return a
+        case let (nil, b?): return b
+        case (nil, nil): return nil
+        }
     }
 }

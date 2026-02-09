@@ -90,9 +90,9 @@ struct DayServiceTests {
         #expect(result.metricsWereUpdated == true)
     }
 
-    @Test func loadAndUpdateTodayDoesNotCreateDayAfterMorningWindow() async throws {
+    @Test func loadAndUpdateTodayUpdatesOnlyActivityMetricsAfterMorningWindow() async throws {
         let mockHealth = MockHealthKitService()
-        mockHealth.mockMetrics = makeMetrics()
+        mockHealth.mockMetrics = makeMetrics(steps: 8000, activeCalories: 350)
 
         let (service, _, _, _) = makeService(
             healthKitService: mockHealth,
@@ -101,9 +101,17 @@ struct DayServiceTests {
 
         let result = try await service.loadAndUpdateToday()
 
-        #expect(result.day == nil)
+        // After morning window, we still create/update a Day for activity metrics
+        #expect(result.day != nil)
         #expect(result.freshMetrics != nil)
-        #expect(result.metricsWereUpdated == false)
+        #expect(result.metricsWereUpdated == true)
+
+        // But only activity metrics should be stored (not recovery metrics)
+        #expect(result.day?.healthMetrics?.steps == 8000)
+        #expect(result.day?.healthMetrics?.activeCalories == 350)
+        #expect(result.day?.healthMetrics?.restingHeartRate == nil)
+        #expect(result.day?.healthMetrics?.hrv == nil)
+        #expect(result.day?.healthMetrics?.sleepDuration == nil)
     }
 
     @Test func loadAndUpdateTodayMergesMetricsDuringMorningWindow() async throws {

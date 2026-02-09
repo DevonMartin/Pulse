@@ -11,9 +11,9 @@ import SwiftUI
 ///
 /// This is the primary view users see when opening the app.
 /// It shows:
-/// - Today's readiness score
+/// - Today's readiness score (includes HRV, RHR, sleep breakdown)
 /// - Contextual check-in card
-/// - Today's health metrics summary
+/// - Today's activity (steps and calories, updated throughout the day)
 struct DashboardView: View {
     @Environment(AppContainer.self) private var container
 
@@ -52,9 +52,8 @@ struct DashboardView: View {
                         mlWeight: mlWeight
                     )
 
-                    // Today's metrics card
-					// (prefer Day's metrics if available, otherwise fetch from HealthKit)
-                    TodaysMetricsCard(metrics: currentDay?.healthMetrics ?? todayMetrics)
+                    // Today's activity card (steps and calories - updates throughout the day)
+                    TodaysActivityCard(metrics: currentDay?.healthMetrics ?? todayMetrics)
 
                     // Error display
                     if let error = errorMessage {

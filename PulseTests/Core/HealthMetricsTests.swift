@@ -242,11 +242,11 @@ struct HealthMetricsTests {
         let (merged, didChange) = existing.merging(with: newer)
 
         #expect(didChange == true)
-        #expect(merged.restingHeartRate == 62) // Kept existing
-        #expect(merged.hrv == 45) // Filled from newer
-		#expect(merged.sleepDuration == 7.0 * 3600) // Filled from newer
-        #expect(merged.steps == 5000) // Kept existing
-        #expect(merged.activeCalories == 350) // Filled from newer
+        #expect(merged.restingHeartRate == 62) // Kept existing (recovery metric)
+        #expect(merged.hrv == 45) // Filled from newer (recovery metric)
+        #expect(merged.sleepDuration == 7.0 * 3600) // Filled from newer (recovery metric)
+        #expect(merged.steps == 8000) // Takes max (activity metric: 8000 > 5000)
+        #expect(merged.activeCalories == 350) // Takes max (activity metric: 350 > nil)
     }
 
     @Test func mergingDoesNotOverwriteExistingValues() {

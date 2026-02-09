@@ -226,23 +226,21 @@ final class DashboardUITests: XCTestCase {
         XCTAssertTrue(recommendation.exists, "Expected poor recommendation text")
     }
 
-    // MARK: - Metrics Card Tests
+    // MARK: - Activity Card Tests
 
     @MainActor
-    func testMetricsCardShowsDataOnNewDay() throws {
+    func testActivityCardShowsDataOnNewDay() throws {
         app.launchArguments = ["--uitesting", "--morning-window", "--no-checkin"]
         app.launch()
 
-        let metricsCard = app.staticTexts["Today's Metrics"]
-        XCTAssertTrue(metricsCard.waitForExistence(timeout: 5))
+        let activityCard = app.staticTexts["Today's Activity"]
+        XCTAssertTrue(activityCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "Metrics-Card")
+        takeScreenshot(name: "Activity-Card")
 
-        // Verify metric labels are present
-        XCTAssertTrue(app.staticTexts["Resting HR"].exists, "Expected Resting HR label")
-        XCTAssertTrue(app.staticTexts["HRV"].exists, "Expected HRV label")
-        XCTAssertTrue(app.staticTexts["Sleep"].exists, "Expected Sleep label")
-        XCTAssertTrue(app.staticTexts["Energy"].exists, "Expected Energy label")
+        // Verify activity metric labels are present (steps and calories)
+        XCTAssertTrue(app.staticTexts["Steps"].exists, "Expected Steps label")
+        XCTAssertTrue(app.staticTexts["Active Cal"].exists, "Expected Active Cal label")
     }
 
     // MARK: - Check-In Card Tests
