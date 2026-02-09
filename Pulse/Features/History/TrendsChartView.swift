@@ -20,7 +20,7 @@ struct TrendsChartView: View {
             .sorted { $0.startDate < $1.startDate }
     }
 
-    /// Determines appropriate X-axis stride based on time range and data count
+    /// Determines appropriate X-axis stride based on time range and date span
     private var xAxisStride: Calendar.Component {
         switch timeRange {
         case .week:
@@ -28,7 +28,10 @@ struct TrendsChartView: View {
         case .month:
             return .weekOfYear
         case .all:
-            return daysWithScores.count > 60 ? .month : .weekOfYear
+            let span = dateSpanInDays
+            if span > 365 { return .quarter }
+            if span > 90  { return .month }
+            return .month
         }
     }
 
@@ -40,10 +43,17 @@ struct TrendsChartView: View {
         case .month:
             return .dateTime.month(.abbreviated).day()
         case .all:
-            return daysWithScores.count > 60
-                ? .dateTime.month(.abbreviated)
-                : .dateTime.month(.abbreviated).day()
+            let span = dateSpanInDays
+            if span > 365 { return .dateTime.month(.abbreviated).year(.twoDigits) }
+            return .dateTime.month(.abbreviated)
         }
+    }
+
+    /// The number of calendar days between the first and last data point
+    private var dateSpanInDays: Int {
+        guard let first = daysWithScores.first?.startDate,
+              let last = daysWithScores.last?.startDate else { return 0 }
+        return Calendar.current.dateComponents([.day], from: first, to: last).day ?? 0
     }
 
     /// Average score for the period

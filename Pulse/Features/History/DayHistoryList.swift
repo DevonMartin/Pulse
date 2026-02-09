@@ -133,8 +133,11 @@ private struct DayCard: View {
                     Text(day.startDate.formatted(.dateTime.day()))
                         .font(.title2)
                         .fontWeight(.bold)
+                    Text(day.startDate.formatted(.dateTime.month(.abbreviated)))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                .frame(width: 44)
+                .frame(width: 48)
 
                 // Check-in slots
                 VStack(alignment: .leading, spacing: 8) {
