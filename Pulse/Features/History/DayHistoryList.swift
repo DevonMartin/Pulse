@@ -116,9 +116,9 @@ private struct DayCard: View {
 
     @State private var isExpanded = false
 
-    /// Whether this day has health data attached
+    /// Whether this day has actual health data (not just an empty metrics object)
     private var hasHealthData: Bool {
-        day.healthMetrics != nil
+        day.healthMetrics?.hasAnyData == true
     }
 
     var body: some View {

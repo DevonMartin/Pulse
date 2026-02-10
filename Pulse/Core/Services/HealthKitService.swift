@@ -158,7 +158,8 @@ final class HealthKitService: HealthKitServiceProtocol {
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
 
         // Fetch all metrics concurrently.
-		// `async let` allows concurrent data fetching.
+        // Each fetch returns nil if no data exists (rather than throwing),
+        // so a fresh device with no health history still works.
         async let restingHR = fetchRestingHeartRate(start: startOfDay, end: endOfDay)
         async let hrv = fetchHRV(start: startOfDay, end: endOfDay)
         async let sleep = fetchSleepDuration(start: startOfDay, end: endOfDay)
@@ -167,53 +168,55 @@ final class HealthKitService: HealthKitServiceProtocol {
 
         return HealthMetrics(
             date: date,
-            restingHeartRate: try await restingHR,
-            hrv: try await hrv,
-            sleepDuration: try await sleep,
-            steps: try await steps,
-            activeCalories: try await calories
+            restingHeartRate: await restingHR,
+            hrv: await hrv,
+            sleepDuration: await sleep,
+            steps: await steps,
+            activeCalories: await calories
         )
     }
 
     // MARK: - Private Fetch Methods
 
-    private func fetchRestingHeartRate(start: Date, end: Date) async throws -> Double? {
+    private func fetchRestingHeartRate(start: Date, end: Date) async -> Double? {
         guard let type = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) else {
             return nil
         }
-        return try await fetchMostRecentQuantity(type: type, start: start, end: end, unit: HKUnit.count().unitDivided(by: .minute()))
+        return try? await fetchMostRecentQuantity(type: type, start: start, end: end, unit: HKUnit.count().unitDivided(by: .minute()))
     }
 
-    private func fetchHRV(start: Date, end: Date) async throws -> Double? {
+    private func fetchHRV(start: Date, end: Date) async -> Double? {
         guard let type = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else {
             return nil
         }
-        return try await fetchMostRecentQuantity(type: type, start: start, end: end, unit: HKUnit.secondUnit(with: .milli))
+        return try? await fetchMostRecentQuantity(type: type, start: start, end: end, unit: HKUnit.secondUnit(with: .milli))
     }
 
-    private func fetchSteps(start: Date, end: Date) async throws -> Int? {
+    private func fetchSteps(start: Date, end: Date) async -> Int? {
         guard let type = HKQuantityType.quantityType(forIdentifier: .stepCount) else {
             return nil
         }
-        let sum = try await fetchCumulativeSum(type: type, start: start, end: end, unit: .count())
-        return sum.map { Int($0) }
+        guard let sum = try? await fetchCumulativeSum(type: type, start: start, end: end, unit: .count()) else {
+            return nil
+        }
+        return Int(sum)
     }
 
-    private func fetchActiveCalories(start: Date, end: Date) async throws -> Double? {
+    private func fetchActiveCalories(start: Date, end: Date) async -> Double? {
         guard let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else {
             return nil
         }
-        return try await fetchCumulativeSum(type: type, start: start, end: end, unit: .kilocalorie())
+        return try? await fetchCumulativeSum(type: type, start: start, end: end, unit: .kilocalorie())
     }
 
-    private func fetchSleepDuration(start: Date, end: Date) async throws -> TimeInterval? {
+    private func fetchSleepDuration(start: Date, end: Date) async -> TimeInterval? {
         guard let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else {
             return nil
         }
 
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
 
-        return try await withCheckedThrowingContinuation { continuation in
+        return try? await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: type,
                 predicate: predicate,

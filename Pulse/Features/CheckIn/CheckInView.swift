@@ -115,19 +115,22 @@ struct CheckInView: View {
         errorMessage = nil
 
         do {
-            // Fetch today's health data for the snapshot
-            let todayMetrics = try await container.healthKitService.fetchMetrics(for: Date())
+            // Fetch today's health data (nil metrics are fine — device may have no data yet)
+            let todayMetrics = try? await container.healthKitService.fetchMetrics(for: Date())
 
             // Get or create today's Day
             var day = try await container.dayRepository.getCurrentDay()
 
-            // Set the first check-in
+            // Set the first check-in (this is the critical part — always saves)
             day.firstCheckIn = CheckInSlot(energyLevel: selectedEnergy)
-            day.healthMetrics = todayMetrics
+            if let todayMetrics {
+                day.healthMetrics = todayMetrics
+            }
 
             // Calculate today's readiness score using blended rules + ML
-            if let score = await container.readinessService.calculate(
-                from: todayMetrics,
+            if let metrics = day.healthMetrics,
+               let score = await container.readinessService.calculate(
+                from: metrics,
                 energyLevel: selectedEnergy
             ) {
                 day.readinessScore = score
@@ -140,9 +143,8 @@ struct CheckInView: View {
             dismiss()
         } catch {
             errorMessage = "Failed to save check-in: \(error.localizedDescription)"
+            isSubmitting = false
         }
-
-        isSubmitting = false
     }
 }
 

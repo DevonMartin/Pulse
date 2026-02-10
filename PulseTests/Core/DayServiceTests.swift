@@ -238,6 +238,132 @@ struct DayServiceTests {
         #expect(result.day?.readinessScore == nil)
     }
 
+    // MARK: - Empty / Denied HealthKit Tests
+
+    @Test func loadAndUpdateTodayDoesNotCreateDayWhenAllMetricsNil() async throws {
+        let mockHealth = MockHealthKitService()
+        // Simulate denied permissions: fetchMetrics returns all-nil fields
+        mockHealth.mockMetrics = HealthMetrics(date: Date())
+
+        let (service, repo, _, _) = makeService(
+            healthKitService: mockHealth,
+            isMorningWindow: true
+        )
+
+        let result = try await service.loadAndUpdateToday()
+
+        // Should not create a Day when there's no real health data
+        #expect(result.day == nil)
+        #expect(result.metricsWereUpdated == false)
+
+        // Repository should have no saved days
+        let allDays = try await repo.getDays(from: Date.distantPast, to: Date.distantFuture)
+        #expect(allDays.isEmpty)
+    }
+
+    @Test func loadAndUpdateTodayDoesNotCreateDayWhenAllMetricsNilAfterMorningWindow() async throws {
+        let mockHealth = MockHealthKitService()
+        mockHealth.mockMetrics = HealthMetrics(date: Date())
+
+        let (service, repo, _, _) = makeService(
+            healthKitService: mockHealth,
+            isMorningWindow: false
+        )
+
+        let result = try await service.loadAndUpdateToday()
+
+        #expect(result.day == nil)
+        #expect(result.metricsWereUpdated == false)
+
+        let allDays = try await repo.getDays(from: Date.distantPast, to: Date.distantFuture)
+        #expect(allDays.isEmpty)
+    }
+
+    @Test func loadAndUpdateTodayCreatesDayWhenOnlySomeMetricsAvailable() async throws {
+        let mockHealth = MockHealthKitService()
+        // Only steps available (e.g. user allowed steps but denied heart data)
+        mockHealth.mockMetrics = HealthMetrics(date: Date(), steps: 500)
+
+        let (service, repo, _, _) = makeService(
+            healthKitService: mockHealth,
+            isMorningWindow: true
+        )
+
+        let result = try await service.loadAndUpdateToday()
+
+        #expect(result.day != nil)
+        #expect(result.metricsWereUpdated == true)
+        #expect(result.day?.healthMetrics?.steps == 500)
+
+        let allDays = try await repo.getDays(from: Date.distantPast, to: Date.distantFuture)
+        #expect(allDays.count == 1)
+    }
+
+    @Test func loadAndUpdateTodayPreservesExistingDayWhenMetricsNil() async throws {
+        let currentDate = testDate
+        let mockRepo = MockDayRepository(currentUserDayStart: currentDate)
+        let mockHealth = MockHealthKitService()
+
+        // Existing day with a check-in
+        let existingDay = Day(
+            startDate: currentDate,
+            firstCheckIn: CheckInSlot(energyLevel: 4),
+            healthMetrics: makeMetrics()
+        )
+        try await mockRepo.save(existingDay)
+
+        // HealthKit now returns all-nil (e.g. permissions revoked)
+        mockHealth.mockMetrics = HealthMetrics(date: Date())
+
+        let (service, _, _, _) = makeService(
+            dayRepository: mockRepo,
+            healthKitService: mockHealth,
+            isMorningWindow: true
+        )
+
+        let result = try await service.loadAndUpdateToday()
+
+        // Existing day should be returned unchanged
+        #expect(result.day != nil)
+        #expect(result.day?.hasFirstCheckIn == true)
+        #expect(result.day?.healthMetrics?.restingHeartRate == 60)
+        #expect(result.metricsWereUpdated == false)
+    }
+
+    @Test func updateDayWithMetricsDoesNotSaveEmptyNewDay() async throws {
+        // All-nil metrics should not cause a new Day to be saved
+        let emptyMetrics = HealthMetrics(date: Date())
+
+        let (service, repo, _, _) = makeService(isMorningWindow: true)
+
+        let result = try await service.updateDayWithMetrics(
+            currentDay: nil,
+            freshMetrics: emptyMetrics
+        )
+
+        #expect(result.metricsChanged == false)
+
+        let allDays = try await repo.getDays(from: Date.distantPast, to: Date.distantFuture)
+        #expect(allDays.isEmpty)
+    }
+
+    @Test func updateDayWithMetricsDoesNotSaveEmptyNewDayAfterMorningWindow() async throws {
+        let emptyMetrics = HealthMetrics(date: Date())
+
+        let (service, repo, _, _) = makeService(isMorningWindow: false)
+
+        let result = try await service.updateDayWithMetrics(
+            currentDay: nil,
+            freshMetrics: emptyMetrics,
+            updateRecoveryMetrics: false
+        )
+
+        #expect(result.metricsChanged == false)
+
+        let allDays = try await repo.getDays(from: Date.distantPast, to: Date.distantFuture)
+        #expect(allDays.isEmpty)
+    }
+
     // MARK: - Update Day With Metrics Tests
 
     @Test func updateDayWithMetricsCreatesNewDayWhenNoneExists() async throws {

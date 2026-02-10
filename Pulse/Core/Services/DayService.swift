@@ -55,22 +55,26 @@ actor DayService {
         // Load existing day if any
         var currentDay = try await dayRepository.getCurrentDayIfExists()
 
-        // Fetch fresh metrics from HealthKit
-        let freshMetrics = try await healthKitService.fetchMetrics(for: Date())
+        // Fetch fresh metrics from HealthKit (nil if no data yet — fresh device is fine)
+        let freshMetrics = try? await healthKitService.fetchMetrics(for: Date())
 
         var metricsWereUpdated = false
         var scoreWasRecalculated = false
 
-        // Always update activity metrics (steps/calories accumulate throughout the day)
-        // Only update recovery metrics (RHR, HRV, sleep) and recalculate score during morning window
-        let result = try await updateDayWithMetrics(
-            currentDay: currentDay,
-            freshMetrics: freshMetrics,
-            updateRecoveryMetrics: timeWindowProvider.isMorningWindow
-        )
-        currentDay = result.day
-        metricsWereUpdated = result.metricsChanged
-        scoreWasRecalculated = result.scoreRecalculated
+        // Only merge if we got metrics with actual data from HealthKit
+        // (denied permissions return a HealthMetrics with all-nil fields, not nil itself)
+        if let freshMetrics, freshMetrics.hasAnyData {
+            // Always update activity metrics (steps/calories accumulate throughout the day)
+            // Only update recovery metrics (RHR, HRV, sleep) and recalculate score during morning window
+            let result = try await updateDayWithMetrics(
+                currentDay: currentDay,
+                freshMetrics: freshMetrics,
+                updateRecoveryMetrics: timeWindowProvider.isMorningWindow
+            )
+            currentDay = result.day
+            metricsWereUpdated = result.metricsChanged
+            scoreWasRecalculated = result.scoreRecalculated
+        }
 
         return LoadResult(
             day: currentDay,
@@ -114,9 +118,11 @@ actor DayService {
         } else {
             // No existing metrics
             if updateRecoveryMetrics {
-                // Use all fresh metrics
-                day.healthMetrics = freshMetrics
-                metricsChanged = true
+                // Use all fresh metrics (only if there's actual data)
+                if freshMetrics.hasAnyData {
+                    day.healthMetrics = freshMetrics
+                    metricsChanged = true
+                }
             } else {
                 // Only use activity metrics from fresh data
                 day.healthMetrics = HealthMetrics(
@@ -142,8 +148,8 @@ actor DayService {
             }
         }
 
-        // Save if anything changed or this is a new day
-        if metricsChanged || currentDay == nil {
+        // Save if metrics changed, or this is a new day that has meaningful content
+        if metricsChanged || (currentDay == nil && (day.hasFirstCheckIn || day.healthMetrics?.hasAnyData == true)) {
             try await dayRepository.save(day)
         }
 

@@ -129,9 +129,8 @@ struct EveningCheckInView: View {
             dismiss()
         } catch {
             errorMessage = "Failed to save check-in: \(error.localizedDescription)"
+            isSubmitting = false
         }
-
-        isSubmitting = false
     }
 }
 
