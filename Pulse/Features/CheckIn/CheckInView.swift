@@ -139,6 +139,7 @@ struct CheckInView: View {
             // Save the updated Day
             try await container.dayRepository.save(day)
 
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             onComplete?()
             dismiss()
         } catch {
