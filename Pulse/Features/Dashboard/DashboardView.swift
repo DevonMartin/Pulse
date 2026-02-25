@@ -19,7 +19,7 @@ struct DashboardView: View {
 
     @State private var currentDay: Day?
     @State private var todayMetrics: HealthMetrics?
-    @State private var isLoading = true
+    @State private var isLoading = false
     @State private var showingMorningCheckIn = false
     @State private var showingEveningCheckIn = false
     @State private var errorMessage: String?
@@ -64,7 +64,6 @@ struct DashboardView: View {
                     }
                 }
                 .padding()
-                .animation(.easeInOut(duration: 0.3), value: isLoading)
             }
             .navigationTitle("Dashboard")
             .refreshable {
@@ -81,7 +80,7 @@ struct DashboardView: View {
                 }
             }
             .task {
-                await requestAuthorizationAndLoadData()
+                await initializeAndLoadData()
             }
             .onReceive(NotificationCenter.default.publisher(for: .checkInCompleted)) { _ in
                 Task { await loadData() }
@@ -91,22 +90,15 @@ struct DashboardView: View {
 
     // MARK: - Data Loading
 
-    private func requestAuthorizationAndLoadData() async {
-        do {
-            try await container.healthKitService.requestAuthorization()
+    private func initializeAndLoadData() async {
+        // Ensure sample data is populated before loading (for fresh installs)
+        await container.populateSampleDataIfNeeded()
 
-            // Ensure sample data is populated before loading (for fresh installs)
-            await container.populateSampleDataIfNeeded()
+        // Load saved ML model and trigger retraining with historical data
+        await container.readinessService.loadSavedModel()
+        await retrainMLModel()
 
-            // Load saved ML model and trigger retraining with historical data
-            await container.readinessService.loadSavedModel()
-            await retrainMLModel()
-
-            await loadData()
-        } catch {
-            errorMessage = error.localizedDescription
-            isLoading = false
-        }
+        await loadData()
     }
 
     private func loadData() async {

@@ -68,7 +68,7 @@ extension HealthMetrics: Equatable {
 
 extension HealthMetrics {
     /// Returns sleep duration formatted as hours and minutes (e.g., "7h 30m")
-    var formattedSleepDuration: String? {
+    nonisolated var formattedSleepDuration: String? {
         guard let duration = sleepDuration else { return nil }
         let hours = Int(duration) / 3600
         let minutes = (Int(duration) % 3600) / 60
@@ -80,7 +80,7 @@ extension HealthMetrics {
     }
 
     /// Returns true if we have at least some health data
-    var hasAnyData: Bool {
+    nonisolated var hasAnyData: Bool {
         restingHeartRate != nil ||
         hrv != nil ||
         sleepDuration != nil ||
