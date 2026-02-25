@@ -10,11 +10,16 @@ import SwiftUI
 /// First-launch onboarding flow that explains the app and requests HealthKit access.
 ///
 /// Apple requires that HealthKit apps explain what data they need and why
-/// before showing the system authorization sheet. This 3-page flow satisfies
-/// that requirement:
-/// 1. Welcome / value prop
-/// 2. Health data explanation
-/// 3. HealthKit permission request
+/// before showing the system authorization sheet. This flow satisfies
+/// that requirement while also setting user expectations for the readiness
+/// score, the daily check-in loop, and how personalization works over time.
+///
+/// Pages:
+/// 1. Welcome — core value proposition
+/// 2. How It Works — daily check-in rhythm
+/// 3. Your Readiness Score — what the score means
+/// 4. Gets Smarter Over Time — personalization journey
+/// 5. Health Access — HealthKit permission request
 struct OnboardingView: View {
     @Environment(AppContainer.self) private var container
 
@@ -26,12 +31,18 @@ struct OnboardingView: View {
     /// Called when onboarding completes (sets the persistent flag in the parent).
     var onComplete: () -> Void
 
+    private var pageCount: Int {
+        healthKitUnavailable ? 4 : 5
+    }
+
     var body: some View {
         TabView(selection: $currentPage) {
             welcomePage.tag(0)
-            healthDataPage.tag(1)
+            howItWorksPage.tag(1)
+            readinessScorePage.tag(2)
+            personalizationPage.tag(3)
             if !healthKitUnavailable {
-                permissionPage.tag(2)
+                permissionPage.tag(4)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
@@ -39,7 +50,7 @@ struct OnboardingView: View {
             pageIndicator
                 .padding(.bottom, 16)
         }
-		.background(Color(.systemBackground))
+        .background(Color(.systemBackground))
         .task {
             let status = await container.healthKitService.authorizationStatus
             healthKitUnavailable = (status == .unavailable)
@@ -56,12 +67,12 @@ struct OnboardingView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.orange)
 
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 Text("Welcome to Pulse")
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
-                Text("Understand how your body recovers so you can feel your best every day")
+                Text("Track how you feel alongside what your body is doing — and start to see what actually affects your energy, recovery, and performance.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -70,30 +81,20 @@ struct OnboardingView: View {
 
             Spacer()
 
-            Button {
-                withAnimation { currentPage = 1 }
-            } label: {
-                Text("Get Started")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .tint(.orange)
-            .padding(.horizontal)
-            .padding(.bottom, 60)
+            nextButton("Get Started", page: 1)
         }
     }
 
-    // MARK: - Page 2: Health Data Explanation
+    // MARK: - Page 2: How It Works
 
-    private var healthDataPage: some View {
-        VStack(spacing: 24) {
+    private var howItWorksPage: some View {
+        VStack(spacing: 28) {
             VStack(spacing: 8) {
-                Text("Your Health Data")
+                Text("How It Works")
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
-                Text("Pulse uses these metrics to calculate your readiness score")
+                Text("Two quick check-ins each day, combined with your health data")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -101,73 +102,152 @@ struct OnboardingView: View {
             }
             .padding(.top, 60)
 
-            ScrollView {
-                VStack(spacing: 10) {
-                    healthDataRow(
-                        icon: "heart.fill",
-                        color: .pink,
-                        title: "Heart Rate Variability",
-                        description: "Shows how recovered your nervous system is"
-                    )
-                    healthDataRow(
-                        icon: "waveform.path.ecg",
-                        color: .red,
-                        title: "Resting Heart Rate",
-                        description: "A lower resting rate signals better recovery"
-                    )
-                    healthDataRow(
-                        icon: "bed.double.fill",
-                        color: .indigo,
-                        title: "Sleep",
-                        description: "Quality rest is the biggest factor in readiness"
-                    )
-                    healthDataRow(
-                        icon: "figure.walk",
-                        color: .green,
-                        title: "Steps",
-                        description: "Tracks how active you are throughout the day"
-                    )
-                    healthDataRow(
-                        icon: "flame.fill",
-                        color: .orange,
-                        title: "Active Energy",
-                        description: "Helps gauge how hard your body is working"
-                    )
-                    healthDataRow(
-                        icon: "figure.run",
-                        color: .mint,
-                        title: "Workouts",
-                        description: "Factors exercise load into your recovery"
-                    )
-                }
-                .padding(.horizontal)
-            }
+            VStack(spacing: 16) {
+                stepRow(
+                    number: "1",
+                    icon: "sun.horizon.fill",
+                    color: .orange,
+                    title: "Morning Check-In",
+                    description: "Rate your energy level when you start your day. Pulse combines this with last night's sleep, heart rate, and HRV to calculate your readiness."
+                )
 
-            Text("You can learn more about how Pulse uses your data in Settings.")
+                stepRow(
+                    number: "2",
+                    icon: "moon.stars.fill",
+                    color: .purple,
+                    title: "Evening Check-In",
+                    description: "Reflect on how your energy held up. This is the key signal that teaches Pulse what a good or tough day looks like for you."
+                )
+
+                stepRow(
+                    number: "3",
+                    icon: "chart.line.uptrend.xyaxis",
+                    color: .mint,
+                    title: "Discover Patterns",
+                    description: "Over time, you'll see which metrics actually predict how you perform — not just how you feel in the moment."
+                )
+            }
+            .padding(.horizontal)
+
+            Spacer()
+
+            nextButton("Continue", page: 2)
+        }
+    }
+
+    // MARK: - Page 3: Readiness Score
+
+    private var readinessScorePage: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 8) {
+                Text("Your Readiness Score")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Text("A daily snapshot of how prepared your body is, based on real data and how you actually feel")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+            .padding(.top, 60)
+
+            // Mock score display
+            mockScoreCard
+
+            // Component legend
+			VStack(spacing: 10) {
+				componentRow(
+					color: .red,
+					title: "Resting HR",
+					detail: "Lower at rest means better recovery"
+				)
+				componentRow(
+					color: .pink,
+					title: "HRV",
+					detail: "How recovered your nervous system is"
+				)
+				componentRow(
+					color: .indigo,
+					title: "Sleep",
+					detail: "Duration and quality of last night's rest"
+				)
+				componentRow(
+					color: .orange,
+					title: "Energy",
+					detail: "Your own rating — because you know your body"
+				)
+			}
+            .padding(.horizontal, 24)
+
+            Spacer()
+
+            nextButton("Continue", page: 3)
+        }
+    }
+
+    // MARK: - Page 4: Personalization
+
+    private var personalizationPage: some View {
+        VStack(spacing: 28) {
+            VStack(spacing: 8) {
+                Text("Gets Smarter Over Time")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Text("Pulse learns what matters most for you specifically")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 32)
+            }
+            .padding(.top, 60)
+
+            VStack(spacing: 20) {
+                personalizationStage(
+                    icon: "brain",
+                    color: .orange,
+                    title: "Week 1",
+                    description: "Scores use proven general patterns — HRV, resting heart rate, sleep, and your energy ratings.",
+                    progress: 0.1
+                )
+
+                personalizationStage(
+                    icon: "brain.head.profile",
+                    color: .blue,
+                    title: "Weeks 2-4",
+                    description: "As you check in, an on-device model starts learning your personal patterns and gradually shapes your score.",
+                    progress: 0.5
+                )
+
+                personalizationStage(
+                    icon: "brain.fill",
+                    color: .green,
+                    title: "30+ Days",
+                    description: "Your score is fully personalized. It reflects what actually predicts a good day for you — not just population averages.",
+                    progress: 1.0
+                )
+            }
+            .padding(.horizontal)
+
+            Text("All learning happens on your device. Your data never leaves your phone.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-            Button {
-                if healthKitUnavailable {
-                    completeOnboarding()
-                } else {
-                    withAnimation { currentPage = 2 }
-                }
-            } label: {
-                Text("Continue")
-                    .frame(maxWidth: .infinity)
+            Spacer()
+
+            if healthKitUnavailable {
+                finishButton
+            } else {
+                nextButton("Continue", page: 4)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .tint(.orange)
-            .padding(.horizontal)
-            .padding(.bottom, 60)
         }
     }
 
-    // MARK: - Page 3: Permission Request
+    // MARK: - Page 5: Permission Request
 
     private var permissionPage: some View {
         VStack {
@@ -210,7 +290,7 @@ struct OnboardingView: View {
     // MARK: - Permission Page Content
 
     private var permissionRequestContent: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Image(systemName: "lock.shield.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.orange)
@@ -220,12 +300,22 @@ struct OnboardingView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
-                Text("Pulse reads health data from your Apple Watch or iPhone. No data leaves your device.")
+                Text("Pulse reads health data from your Apple Watch or iPhone to power your readiness score. Nothing is shared or sent anywhere — all data stays on your device.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
+
+            VStack(spacing: 6) {
+				healthDataPill(icon: "waveform.path.ecg", color: .red, label: "Resting Heart Rate")
+                healthDataPill(icon: "heart.fill", color: .pink, label: "Heart Rate Variability")
+                healthDataPill(icon: "bed.double.fill", color: .indigo, label: "Sleep")
+                healthDataPill(icon: "figure.walk", color: .green, label: "Steps")
+                healthDataPill(icon: "flame.fill", color: .orange, label: "Active Energy")
+                healthDataPill(icon: "figure.run", color: .mint, label: "Workouts")
+            }
+            .padding(.horizontal, 40)
         }
     }
 
@@ -252,10 +342,6 @@ struct OnboardingView: View {
     private var noDataWarningButtons: some View {
         VStack(spacing: 12) {
             Button {
-                // Open the Health app so the user can navigate to
-                // Data Access & Devices > Pulse to grant permissions.
-                // There's no public URL to deep-link directly to
-                // Health privacy settings for a specific app.
                 if let url = URL(string: "x-apple-health://") {
                     UIApplication.shared.open(url)
                 }
@@ -283,10 +369,6 @@ struct OnboardingView: View {
 
     // MARK: - Page Indicator
 
-    private var pageCount: Int {
-        healthKitUnavailable ? 2 : 3
-    }
-
     private var pageIndicator: some View {
         HStack(spacing: 8) {
             ForEach(0..<pageCount, id: \.self) { index in
@@ -298,28 +380,189 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Reusable Components
 
-    private func healthDataRow(icon: String, color: Color, title: String, description: String) -> some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(color)
-                .frame(width: 32)
+    private func nextButton(_ label: String, page: Int) -> some View {
+        Button {
+            withAnimation { currentPage = page }
+        } label: {
+            Text(label)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .tint(.orange)
+        .padding(.horizontal)
+        .padding(.bottom, 60)
+    }
 
-            VStack(alignment: .leading, spacing: 2) {
+    private var finishButton: some View {
+        Button {
+            completeOnboarding()
+        } label: {
+            Text("Get Started")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .tint(.orange)
+        .padding(.horizontal)
+        .padding(.bottom, 60)
+    }
+
+    private func stepRow(number: String, icon: String, color: Color, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundStyle(color)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.headline)
                 Text(description)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var mockScoreCard: some View {
+        HStack(alignment: .center, spacing: 20) {
+            // Mock score circle
+            ZStack {
+                Circle()
+                    .stroke(Color.green.opacity(0.2), lineWidth: 10)
+
+                Circle()
+                    .trim(from: 0, to: 0.74)
+                    .stroke(Color.green, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+
+                VStack(spacing: 2) {
+                    Text("74")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+
+                    Text("Good")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 100, height: 100)
+
+            // Mock breakdown bars
+            VStack(alignment: .leading, spacing: 6) {
+                mockBreakdownRow(label: "Resting HR", value: 0.80, color: .red)
+                mockBreakdownRow(label: "HRV", value: 0.70, color: .pink)
+                mockBreakdownRow(label: "Sleep", value: 0.85, color: .indigo)
+                mockBreakdownRow(label: "Energy", value: 0.60, color: .orange)
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
+    }
+
+    private func mockBreakdownRow(label: String, value: CGFloat, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 64, alignment: .leading)
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(color.opacity(0.2))
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(color)
+                        .frame(width: geometry.size.width * value)
+                }
+            }
+            .frame(height: 8)
+        }
+    }
+
+    private func componentRow(color: Color, title: String, detail: String) -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color)
+                .frame(width: 4, height: 28)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+    }
+
+    private func personalizationStage(icon: String, color: Color, title: String, description: String, progress: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundStyle(color)
+                    .frame(width: 36, height: 36)
+
+                // Mini progress bar
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(color.opacity(0.2))
+                    .frame(width: 36, height: 4)
+                    .overlay(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(color)
+                            .frame(width: 36 * progress, height: 4)
+                    }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func healthDataPill(icon: String, color: Color, label: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundStyle(color)
+                .frame(width: 20)
+
+            Text(label)
+                .font(.subheadline)
+
+            Spacer()
+        }
+        .padding(.vertical, 6)
     }
 
     // MARK: - Actions
@@ -327,16 +570,8 @@ struct OnboardingView: View {
     private func requestHealthKitAccess() async {
         do {
             try await container.healthKitService.requestAuthorization()
-
-            // Complete immediately after the system sheet dismisses.
-            // iOS never reveals if read permissions were actually denied
-            // for read-only access, and probing for data adds a visible
-            // delay. The app handles missing data gracefully throughout,
-            // so we don't need to gate on it here.
-			await MainActor.run { completeOnboarding() }
+            await MainActor.run { completeOnboarding() }
         } catch {
-            // Authorization threw (e.g., HealthKit unavailable mid-flow).
-            // Show the warning so the user can continue anyway.
             withAnimation(.easeInOut(duration: 0.3)) {
                 showNoDataWarning = true
             }

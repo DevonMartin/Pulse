@@ -33,7 +33,7 @@ struct RootView: View {
 			mainTabView
 			if showOnboarding {
 				OnboardingView {
-//					hasCompletedOnboarding = true
+					hasCompletedOnboarding = true
 					withAnimation(.easeInOut) { showOnboarding = false }
 				}
 				.transition(.opacity)
