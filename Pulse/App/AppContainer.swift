@@ -36,6 +36,9 @@ final class AppContainer {
     /// The Day service for managing today's data and metrics updates
     let dayService: DayService
 
+    /// The notification service for scheduling check-in reminders
+    let notificationService: NotificationServiceProtocol
+
     // MARK: - Repositories
 
     /// The Day repository for user days with check-in slots
@@ -160,6 +163,8 @@ final class AppContainer {
                 readinessService: readinessService
             )
 
+            self.notificationService = MockNotificationService()
+
             // Set up test Day based on launch arguments
             Task { @MainActor in
                 await Self.setupUITestDay(in: mockRepo)
@@ -177,6 +182,9 @@ final class AppContainer {
             healthKitService: healthKitService,
             readinessService: readinessService
         )
+
+        // Create the notification service
+        self.notificationService = NotificationService()
     }
 
     // MARK: - Sample Data
@@ -294,7 +302,8 @@ final class AppContainer {
         readinessCalculator: ReadinessCalculatorProtocol = ReadinessCalculator(),
         readinessService: ReadinessService? = nil,
         dayRepository: DayRepositoryProtocol? = nil,
-        dayService: DayService? = nil
+        dayService: DayService? = nil,
+        notificationService: NotificationServiceProtocol? = nil
     ) {
         self.healthKitService = healthKitService
         self.readinessCalculator = readinessCalculator
@@ -307,6 +316,7 @@ final class AppContainer {
             healthKitService: healthKitService,
             readinessService: resolvedReadinessService
         )
+        self.notificationService = notificationService ?? MockNotificationService()
     }
 
     // MARK: - UI Testing Support
