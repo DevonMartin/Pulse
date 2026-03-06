@@ -19,7 +19,8 @@ import SwiftUI
 /// 2. How It Works — daily check-in rhythm
 /// 3. Your Readiness Score — what the score means
 /// 4. Gets Smarter Over Time — personalization journey
-/// 5. Health Access — HealthKit permission request
+/// 5. Set Your Schedule — check-in times + notification permission
+/// 6. Health Access — HealthKit permission request
 struct OnboardingView: View {
     @Environment(AppContainer.self) private var container
 
@@ -28,11 +29,21 @@ struct OnboardingView: View {
     @State private var showNoDataWarning = false
     @State private var healthKitUnavailable = false
 
+    // Schedule page state
+    @State private var morningTime: Date = {
+        Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
+    }()
+    @State private var eveningTime: Date = {
+        Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: Date()) ?? Date()
+    }()
+    @State private var scheduleSaved = false
+    @State private var remindersEnabled = true
+
     /// Called when onboarding completes (sets the persistent flag in the parent).
     var onComplete: () -> Void
 
     private var pageCount: Int {
-        healthKitUnavailable ? 4 : 5
+        healthKitUnavailable ? 5 : 6
     }
 
     var body: some View {
@@ -41,8 +52,9 @@ struct OnboardingView: View {
             howItWorksPage.tag(1)
             readinessScorePage.tag(2)
             personalizationPage.tag(3)
+            schedulePage.tag(4)
             if !healthKitUnavailable {
-                permissionPage.tag(4)
+                permissionPage.tag(5)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
@@ -51,6 +63,12 @@ struct OnboardingView: View {
                 .padding(.bottom, 16)
         }
         .background(Color(.systemBackground))
+        .onChange(of: currentPage) { oldPage, _ in
+            // Save schedule if the user swiped away from the schedule page
+            if oldPage == 4 && !scheduleSaved {
+                saveSchedule()
+            }
+        }
         .task {
             let status = await container.healthKitService.authorizationStatus
             healthKitUnavailable = (status == .unavailable)
@@ -235,19 +253,120 @@ struct OnboardingView: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 32)
 
             Spacer()
 
-            if healthKitUnavailable {
-                finishButton
-            } else {
-                nextButton("Continue", page: 4)
-            }
+            nextButton("Continue", page: 4)
         }
     }
 
-    // MARK: - Page 5: Permission Request
+    // MARK: - Page 5: Set Your Schedule
+
+    private var schedulePage: some View {
+        VStack(spacing: 28) {
+            VStack(spacing: 8) {
+                Text("Set Your Schedule")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Text("Choose when you'd like to check in each day")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 32)
+            }
+            .padding(.top, 60)
+
+            VStack(spacing: 20) {
+                // Morning time picker
+                HStack {
+                    ZStack {
+                        Circle()
+                            .fill(Color.orange.opacity(0.15))
+                            .frame(width: 44, height: 44)
+
+                        Image(systemName: "sun.horizon.fill")
+                            .font(.title3)
+                            .foregroundStyle(.orange)
+                    }
+
+                    DatePicker(
+                        "Morning",
+                        selection: $morningTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .font(.headline)
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                // Evening time picker
+                HStack {
+                    ZStack {
+                        Circle()
+                            .fill(Color.purple.opacity(0.15))
+                            .frame(width: 44, height: 44)
+
+                        Image(systemName: "moon.stars.fill")
+                            .font(.title3)
+                            .foregroundStyle(.purple)
+                    }
+
+                    DatePicker(
+                        "Evening",
+                        selection: $eveningTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .font(.headline)
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            .padding(.horizontal)
+
+            // Reminder opt-in
+            Toggle(isOn: $remindersEnabled) {
+                HStack(spacing: 10) {
+                    Image(systemName: "bell.fill")
+                        .foregroundStyle(.orange)
+                    Text("Remind me at these times")
+                        .font(.subheadline)
+                }
+            }
+            .padding()
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal)
+
+            Text("\"Morning\" is whenever your day starts and \"Evening\" is when you're winding down — it doesn't have to be AM and PM. You can change these anytime in Settings.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 32)
+
+            Spacer()
+
+            Button {
+                saveScheduleAndContinue()
+            } label: {
+                Text("Continue")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(.orange)
+            .padding(.horizontal)
+            .padding(.bottom, 60)
+        }
+    }
+
+    // MARK: - Page 6: Permission Request
 
     private var permissionPage: some View {
         VStack {
@@ -387,20 +506,6 @@ struct OnboardingView: View {
             withAnimation { currentPage = page }
         } label: {
             Text(label)
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .tint(.orange)
-        .padding(.horizontal)
-        .padding(.bottom, 60)
-    }
-
-    private var finishButton: some View {
-        Button {
-            completeOnboarding()
-        } label: {
-            Text("Get Started")
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
@@ -566,6 +671,45 @@ struct OnboardingView: View {
     }
 
     // MARK: - Actions
+
+    /// Persists the chosen check-in times and requests notification permission.
+    /// Safe to call more than once — the `scheduleSaved` flag prevents duplicate work.
+    private func saveSchedule() {
+        guard !scheduleSaved else { return }
+        scheduleSaved = true
+
+        let calendar = Calendar.current
+        let mh = calendar.component(.hour, from: morningTime)
+        let mm = calendar.component(.minute, from: morningTime)
+        let eh = calendar.component(.hour, from: eveningTime)
+        let em = calendar.component(.minute, from: eveningTime)
+
+        TimeWindows.saveCheckInTimes(
+            morningHour: mh, morningMinute: mm,
+            eveningHour: eh, eveningMinute: em
+        )
+
+        // Persist the notification preference
+        let defaults = UserDefaults(suiteName: TimeWindows.appGroupID) ?? .standard
+        defaults.set(remindersEnabled, forKey: "notificationsEnabled")
+
+        if remindersEnabled {
+            Task {
+                _ = await container.notificationService.requestAuthorization()
+                await container.notificationService.scheduleCheckInReminders()
+            }
+        }
+    }
+
+    private func saveScheduleAndContinue() {
+        saveSchedule()
+
+        if healthKitUnavailable {
+            completeOnboarding()
+        } else {
+            withAnimation { currentPage = 5 }
+        }
+    }
 
     private func requestHealthKitAccess() async {
         do {
