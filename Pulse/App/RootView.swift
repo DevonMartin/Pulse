@@ -10,6 +10,7 @@ import SwiftUI
 struct RootView: View {
 
 	@Environment(AppContainer.self) private var container
+	@Environment(\.scenePhase) private var scenePhase
 
 	/// Whether the user has completed the onboarding flow (persisted).
 	@AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
@@ -59,14 +60,34 @@ struct RootView: View {
 		.onOpenURL { url in
 			handleDeepLink(url)
 		}
+		.onChange(of: scenePhase) { _, newPhase in
+			if newPhase == .active && hasCompletedOnboarding {
+				Task {
+					// Re-schedule to keep notification times in sync with settings
+					await container.notificationService.scheduleCheckInReminders()
+
+					// Only clear delivered notifications and badge if the user
+					// is caught up on check-ins for the current window
+					let day = try? await container.dayRepository.getCurrentDayIfExists()
+					let pendingCheckIn = (TimeWindows.isMorningWindow && day?.hasFirstCheckIn != true)
+						|| (TimeWindows.isEveningWindow && day?.hasSecondCheckIn != true)
+
+					if !pendingCheckIn {
+						await container.notificationService.clearDeliveredNotifications()
+					}
+				}
+			}
+		}
 		.sheet(isPresented: $showingMorningCheckIn) {
 			CheckInView {
 				NotificationCenter.default.post(name: .checkInCompleted, object: nil)
+				Task { await container.notificationService.clearDeliveredNotifications() }
 			}
 		}
 		.sheet(isPresented: $showingEveningCheckIn) {
 			EveningCheckInView {
 				NotificationCenter.default.post(name: .checkInCompleted, object: nil)
+				Task { await container.notificationService.clearDeliveredNotifications() }
 			}
 		}
 	}

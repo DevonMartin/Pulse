@@ -80,12 +80,18 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showingMorningCheckIn) {
                 CheckInView {
-                    Task { await loadData() }
+                    Task {
+                        await loadData()
+                        await container.notificationService.clearDeliveredNotifications()
+                    }
                 }
             }
             .sheet(isPresented: $showingEveningCheckIn) {
                 EveningCheckInView {
-                    Task { await loadData() }
+                    Task {
+                        await loadData()
+                        await container.notificationService.clearDeliveredNotifications()
+                    }
                 }
             }
             .task {

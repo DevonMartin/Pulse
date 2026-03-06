@@ -58,9 +58,9 @@ struct OnboardingView: View {
                 .padding(.bottom, 16)
         }
         .background(Color(.systemBackground))
-        .onChange(of: currentPage) { oldPage, _ in
-            // Save schedule if the user swiped away from the schedule page
-            if oldPage == 4 && !scheduleSaved {
+        .onChange(of: currentPage) { oldPage, newPage in
+            // Save schedule if the user swiped forward past the schedule page
+            if oldPage == 4 && newPage > 4 {
                 saveSchedule()
             }
         }
@@ -663,12 +663,10 @@ struct OnboardingView: View {
 
     // MARK: - Actions
 
-    /// Persists the chosen check-in times and requests notification permission.
-    /// Safe to call more than once — the `scheduleSaved` flag prevents duplicate work.
+    /// Persists the chosen check-in times, notification preference, and
+    /// requests notification permission on first call. Times are always
+    /// saved so the user can go back, adjust, and have changes stick.
     private func saveSchedule() {
-        guard !scheduleSaved else { return }
-        scheduleSaved = true
-
         let calendar = Calendar.current
         let mh = calendar.component(.hour, from: morningTime)
         let mm = calendar.component(.minute, from: morningTime)
@@ -684,7 +682,9 @@ struct OnboardingView: View {
         let defaults = UserDefaults(suiteName: TimeWindows.appGroupID) ?? .standard
         defaults.set(remindersEnabled, forKey: "notificationsEnabled")
 
-        if remindersEnabled {
+        // Only request permission once — subsequent saves just update times
+        if remindersEnabled && !scheduleSaved {
+            scheduleSaved = true
             Task {
                 _ = await container.notificationService.requestAuthorization()
                 await container.notificationService.scheduleCheckInReminders()

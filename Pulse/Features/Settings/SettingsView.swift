@@ -64,6 +64,9 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            refreshFromDefaults()
+        }
         .task {
             notificationStatus = await container.notificationService.authorizationStatus()
         }
@@ -149,6 +152,29 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
+    }
+
+    /// Refreshes state from UserDefaults so the view always reflects
+    /// the latest values (e.g., times set during onboarding).
+    private func refreshFromDefaults() {
+        let calendar = Calendar.current
+        let now = Date()
+
+        morningTime = calendar.date(
+            bySettingHour: TimeWindows.morningCheckInHour,
+            minute: TimeWindows.morningCheckInMinute,
+            second: 0,
+            of: now
+        ) ?? now
+        eveningTime = calendar.date(
+            bySettingHour: TimeWindows.eveningCheckInHour,
+            minute: TimeWindows.eveningCheckInMinute,
+            second: 0,
+            of: now
+        ) ?? now
+
+        let defaults = UserDefaults(suiteName: TimeWindows.appGroupID) ?? .standard
+        notificationsEnabled = defaults.object(forKey: "notificationsEnabled") as? Bool ?? true
     }
 
     private func saveTimesAndReschedule() {
