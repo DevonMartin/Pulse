@@ -134,13 +134,8 @@ final class AppContainer {
             let mock = MockHealthKitService()
             mock.mockAuthorizationStatus = .notDetermined
             healthKit = mock
-        } else if HKHealthStore.isHealthDataAvailable() {
-            healthKit = HealthKitService()
         } else {
-            // iPad or device without HealthKit
-            let mock = MockHealthKitService()
-            mock.mockAuthorizationStatus = .unavailable
-            healthKit = mock
+            healthKit = HealthKitService()
         }
         self.healthKitService = healthKit
 

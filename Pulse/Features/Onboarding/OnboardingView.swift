@@ -27,7 +27,6 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var isRequestingAuth = false
     @State private var showNoDataWarning = false
-    @State private var healthKitUnavailable = false
 
     // Schedule page state
     @State private var morningTime: Date = {
@@ -42,9 +41,7 @@ struct OnboardingView: View {
     /// Called when onboarding completes (sets the persistent flag in the parent).
     var onComplete: () -> Void
 
-    private var pageCount: Int {
-        healthKitUnavailable ? 5 : 6
-    }
+    private let pageCount = 6
 
     var body: some View {
         TabView(selection: $currentPage) {
@@ -53,9 +50,7 @@ struct OnboardingView: View {
             readinessScorePage.tag(2)
             personalizationPage.tag(3)
             schedulePage.tag(4)
-            if !healthKitUnavailable {
-                permissionPage.tag(5)
-            }
+            permissionPage.tag(5)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .overlay(alignment: .bottom) {
@@ -68,10 +63,6 @@ struct OnboardingView: View {
             if oldPage == 4 && !scheduleSaved {
                 saveSchedule()
             }
-        }
-        .task {
-            let status = await container.healthKitService.authorizationStatus
-            healthKitUnavailable = (status == .unavailable)
         }
     }
 
@@ -703,12 +694,7 @@ struct OnboardingView: View {
 
     private func saveScheduleAndContinue() {
         saveSchedule()
-
-        if healthKitUnavailable {
-            completeOnboarding()
-        } else {
-            withAnimation { currentPage = 5 }
-        }
+        withAnimation { currentPage = 5 }
     }
 
     private func requestHealthKitAccess() async {
