@@ -18,9 +18,10 @@ import SwiftUI
 /// 1. Welcome — core value proposition
 /// 2. How It Works — daily check-in rhythm
 /// 3. Your Readiness Score — what the score means
-/// 4. Gets Smarter Over Time — personalization journey
-/// 5. Set Your Schedule — check-in times + notification permission
-/// 6. Health Access — HealthKit permission request
+/// 4. Apple Watch — why a Watch is essential for health data
+/// 5. Gets Smarter Over Time — personalization journey
+/// 6. Set Your Schedule — check-in times + notification permission
+/// 7. Health Access — HealthKit permission request
 struct OnboardingView: View {
     @Environment(AppContainer.self) private var container
 
@@ -41,16 +42,17 @@ struct OnboardingView: View {
     /// Called when onboarding completes (sets the persistent flag in the parent).
     var onComplete: () -> Void
 
-    private let pageCount = 6
+    private let pageCount = 7
 
     var body: some View {
         TabView(selection: $currentPage) {
             welcomePage.tag(0)
             howItWorksPage.tag(1)
             readinessScorePage.tag(2)
-            personalizationPage.tag(3)
-            schedulePage.tag(4)
-            permissionPage.tag(5)
+            watchPage.tag(3)
+            personalizationPage.tag(4)
+            schedulePage.tag(5)
+            permissionPage.tag(6)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .overlay(alignment: .bottom) {
@@ -60,7 +62,7 @@ struct OnboardingView: View {
         .background(Color(.systemBackground))
         .onChange(of: currentPage) { oldPage, newPage in
             // Save schedule if the user swiped forward past the schedule page
-            if oldPage == 4 && newPage > 4 {
+            if oldPage == 5 && newPage > 5 {
                 saveSchedule()
             }
         }
@@ -195,7 +197,67 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Page 4: Personalization
+    // MARK: - Page 4: Apple Watch
+
+    private var watchPage: some View {
+        VStack(spacing: 28) {
+            VStack(spacing: 8) {
+                Text("Wear Your Watch")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+
+                Text("Pulse relies on data from Apple Watch to build your readiness score")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 32)
+            }
+            .padding(.top, 60)
+
+            Image(systemName: "applewatch.and.arrow.forward")
+                .font(.system(size: 64))
+                .foregroundStyle(.orange)
+                .padding(.top, 8)
+
+            VStack(spacing: 16) {
+                watchDataRow(
+                    icon: "heart.fill",
+                    color: .red,
+                    title: "Heart Rate & HRV",
+                    description: "Measured overnight and throughout the day by your Watch's sensors"
+                )
+
+                watchDataRow(
+                    icon: "bed.double.fill",
+                    color: .indigo,
+                    title: "Sleep Tracking",
+                    description: "Wear your Watch to bed so Pulse can measure how long and how well you slept"
+                )
+
+                watchDataRow(
+                    icon: "figure.walk",
+                    color: .green,
+                    title: "Activity & Workouts",
+                    description: "Your iPhone tracks steps and calories, but a Watch adds workout detection and more accurate data"
+                )
+            }
+            .padding(.horizontal)
+
+            Text("Without a Watch, Pulse won't have heart rate, HRV, or sleep data — your score will rely mostly on your energy check-ins.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 32)
+
+            Spacer()
+
+            nextButton("Continue", page: 4)
+        }
+    }
+
+    // MARK: - Page 5: Personalization
 
     private var personalizationPage: some View {
         VStack(spacing: 28) {
@@ -249,11 +311,11 @@ struct OnboardingView: View {
 
             Spacer()
 
-            nextButton("Continue", page: 4)
+            nextButton("Continue", page: 5)
         }
     }
 
-    // MARK: - Page 5: Set Your Schedule
+    // MARK: - Page 6: Set Your Schedule
 
     private var schedulePage: some View {
         VStack(spacing: 28) {
@@ -357,7 +419,7 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - Page 6: Permission Request
+    // MARK: - Page 7: Permission Request
 
     private var permissionPage: some View {
         VStack {
@@ -646,6 +708,34 @@ struct OnboardingView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
+    private func watchDataRow(icon: String, color: Color, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundStyle(color)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
     private func healthDataPill(icon: String, color: Color, label: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
@@ -694,7 +784,7 @@ struct OnboardingView: View {
 
     private func saveScheduleAndContinue() {
         saveSchedule()
-        withAnimation { currentPage = 5 }
+        withAnimation { currentPage = 6 }
     }
 
     private func requestHealthKitAccess() async {
