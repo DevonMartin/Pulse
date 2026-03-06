@@ -86,9 +86,9 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		002CAD8B2F5B83F1005ED4B4 /* Docs */ = {
+		002CAD8B2F5B83F1005ED4B4 /* docs */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Docs;
+			path = docs;
 			sourceTree = "<group>";
 		};
 		00D1F4472EE4D9DE0016F41F /* Shared */ = {
@@ -161,7 +161,7 @@
 		00F6AF0D2EDDD410003B6EBE = {
 			isa = PBXGroup;
 			children = (
-				002CAD8B2F5B83F1005ED4B4 /* Docs */,
+				002CAD8B2F5B83F1005ED4B4 /* docs */,
 				00F6AF882EDDDB45003B6EBE /* LICENSE */,
 				00F6AF842EDDDA59003B6EBE /* README.md */,
 				00F6AF822EDDDA27003B6EBE /* .gitattributes */,
