@@ -86,6 +86,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		002CAD8B2F5B83F1005ED4B4 /* Docs */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Docs;
+			sourceTree = "<group>";
+		};
 		00D1F4472EE4D9DE0016F41F /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Shared;
@@ -156,6 +161,7 @@
 		00F6AF0D2EDDD410003B6EBE = {
 			isa = PBXGroup;
 			children = (
+				002CAD8B2F5B83F1005ED4B4 /* Docs */,
 				00F6AF882EDDDB45003B6EBE /* LICENSE */,
 				00F6AF842EDDDA59003B6EBE /* README.md */,
 				00F6AF822EDDDA27003B6EBE /* .gitattributes */,
@@ -547,7 +553,7 @@
 		00F6AF3A2EDDD411003B6EBE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Pulse Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Pulse/Pulse.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -557,6 +563,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pulse/Resources/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pulse reads your heart rate, HRV, sleep, and activity data to calculate your daily readiness score and track how your body responds to activity over time.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pulse does not write any data to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -589,7 +596,7 @@
 		00F6AF3B2EDDD411003B6EBE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Pulse Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Pulse/Pulse.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -599,6 +606,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pulse/Resources/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pulse reads your heart rate, HRV, sleep, and activity data to calculate your daily readiness score and track how your body responds to activity over time.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pulse does not write any data to Apple Health.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
