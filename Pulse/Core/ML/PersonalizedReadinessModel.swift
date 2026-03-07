@@ -14,7 +14,7 @@ import Foundation
 ///
 /// ## Algorithm
 /// Uses weighted linear regression with ridge regularization:
-/// - Input: Normalized health metrics (HRV, RHR, sleep, day of week,
+/// - Input: Normalized health metrics (HRV, RHR, sleep,
 ///   morning energy, previous-day steps, previous-day calories)
 /// - Output: Predicted readiness score (20-100)
 /// - Label: Blended energy (40% AM + 60% PM)
@@ -51,10 +51,10 @@ actor PersonalizedReadinessModel {
     // MARK: - Model Parameters
 
     /// Number of features (excluding bias term)
-    private let featureCount = 10
+    private let featureCount = 9
 
     /// Learned weights for each feature + bias term
-    /// Order: [bias, hrv, rhr, sleep, sleepSq, dayOfWeek, morningEnergy, prevSteps, prevStepsSq, prevCalories, prevCaloriesSq]
+    /// Order: [bias, hrv, rhr, sleep, sleepSq, morningEnergy, prevSteps, prevStepsSq, prevCalories, prevCaloriesSq]
     private var weights: [Double]?
 
     /// Current training status
@@ -112,7 +112,7 @@ actor PersonalizedReadinessModel {
         status = .training
 
         // Build design matrix X and target vector y
-        // X has shape (n, p): [1, hrv, rhr, sleep, dayOfWeek, morningEnergy, prevSteps, prevCalories]
+        // X has shape (n, p): [1, hrv, rhr, sleep, sleepSq, morningEnergy, prevSteps, prevStepsSq, prevCalories, prevCaloriesSq]
         // y has shape (n,): label for each example
 
         let n = examples.count

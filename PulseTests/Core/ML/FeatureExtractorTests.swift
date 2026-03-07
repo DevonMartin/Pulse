@@ -15,8 +15,7 @@ import Foundation
 /// 1. HRV normalization (20-100ms → 0-1)
 /// 2. RHR normalization with inversion (40-90bpm → 1-0)
 /// 3. Sleep normalization (two-phase: opinionated vs linear)
-/// 4. Day of week encoding
-/// 5. Missing data handling
+/// 4. Missing data handling
 struct FeatureExtractorTests {
 
     // MARK: - HRV Normalization
@@ -163,33 +162,6 @@ struct FeatureExtractorTests {
         #expect(matureFeatures.sleepNormalized! > earlyFeatures.sleepNormalized!)
     }
 
-    // MARK: - Day of Week Encoding
-
-    @Test func dayOfWeekEncodesCorrectly() {
-        let extractor = FeatureExtractor(trainingExampleCount: 0)
-
-        // Create dates for specific days
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = 2025
-        components.month = 12
-
-        // Sunday (weekday = 1)
-        components.day = 7 // Dec 7, 2025 is a Sunday
-        let sunday = calendar.date(from: components)!
-        let sundayMetrics = HealthMetrics(date: sunday, hrv: 50)
-        let sundayFeatures = extractor.extractFeatures(from: sundayMetrics)
-
-        // Saturday (weekday = 7)
-        components.day = 6 // Dec 6, 2025 is a Saturday
-        let saturday = calendar.date(from: components)!
-        let saturdayMetrics = HealthMetrics(date: saturday, hrv: 50)
-        let saturdayFeatures = extractor.extractFeatures(from: saturdayMetrics)
-
-        #expect(sundayFeatures.dayOfWeek == 0.0) // Sunday = 0
-        #expect(saturdayFeatures.dayOfWeek == 1.0) // Saturday = 1
-    }
-
     // MARK: - Missing Data Handling
 
     @Test func missingHrvReturnsNil() {
@@ -219,7 +191,7 @@ struct FeatureExtractorTests {
         #expect(features.sleepNormalized == nil)
     }
 
-    @Test func nilMetricsReturnsAllNilExceptDayOfWeek() {
+    @Test func nilMetricsReturnsAllNil() {
         let extractor = FeatureExtractor(trainingExampleCount: 0)
 
         let features = extractor.extractFeatures(from: nil)
@@ -227,8 +199,9 @@ struct FeatureExtractorTests {
         #expect(features.hrvNormalized == nil)
         #expect(features.rhrNormalized == nil)
         #expect(features.sleepNormalized == nil)
-        #expect(features.dayOfWeek >= 0)
-        #expect(features.dayOfWeek <= 1)
+        #expect(features.morningEnergyNormalized == nil)
+        #expect(features.previousDayStepsNormalized == nil)
+        #expect(features.previousDayCaloriesNormalized == nil)
     }
 
     // MARK: - Feature Vector Tests
@@ -238,7 +211,6 @@ struct FeatureExtractorTests {
             hrvNormalized: 0.5,
             rhrNormalized: nil,
             sleepNormalized: 0.8,
-            dayOfWeek: 0.5,
             morningEnergyNormalized: 0.75,
             previousDayStepsNormalized: nil,
             previousDayCaloriesNormalized: nil,
@@ -253,12 +225,11 @@ struct FeatureExtractorTests {
         #expect(array[1] == 0.5)    // RHR (default)
         #expect(array[2] == 0.8)    // Sleep
         #expect(array[3] == 0.64)   // Sleep² (0.8²)
-        #expect(array[4] == 0.5)    // Day of week
-        #expect(array[5] == 0.75)   // Morning energy
-        #expect(array[6] == 0.5)    // Prev steps (default)
-        #expect(array[7] == 0.25)   // Prev steps² (default 0.5² = 0.25)
-        #expect(array[8] == 0.5)    // Prev calories (default)
-        #expect(array[9] == 0.25)   // Prev calories² (default 0.5² = 0.25)
+        #expect(array[4] == 0.75)   // Morning energy
+        #expect(array[5] == 0.5)    // Prev steps (default)
+        #expect(array[6] == 0.25)   // Prev steps² (default 0.5² = 0.25)
+        #expect(array[7] == 0.5)    // Prev calories (default)
+        #expect(array[8] == 0.25)   // Prev calories² (default 0.5² = 0.25)
     }
 
     @Test func availableFeatureCountIsCorrect() {
@@ -266,7 +237,6 @@ struct FeatureExtractorTests {
             hrvNormalized: 0.5,
             rhrNormalized: 0.5,
             sleepNormalized: 0.5,
-            dayOfWeek: 0.5,
             morningEnergyNormalized: 0.5,
             previousDayStepsNormalized: 0.5,
             previousDayCaloriesNormalized: 0.5,
@@ -274,13 +244,12 @@ struct FeatureExtractorTests {
             previousDayStepsNormalizedSquared: 0.25,
             previousDayCaloriesNormalizedSquared: 0.25
         )
-        #expect(allAvailable.availableFeatureCount == 7)
+        #expect(allAvailable.availableFeatureCount == 6)
 
         let twoMissing = FeatureVector(
             hrvNormalized: 0.5,
             rhrNormalized: nil,
             sleepNormalized: nil,
-            dayOfWeek: 0.5,
             morningEnergyNormalized: 0.5,
             previousDayStepsNormalized: nil,
             previousDayCaloriesNormalized: nil,
@@ -288,13 +257,12 @@ struct FeatureExtractorTests {
             previousDayStepsNormalizedSquared: nil,
             previousDayCaloriesNormalizedSquared: nil
         )
-        #expect(twoMissing.availableFeatureCount == 3)
+        #expect(twoMissing.availableFeatureCount == 2)
 
         let allMissing = FeatureVector(
             hrvNormalized: nil,
             rhrNormalized: nil,
             sleepNormalized: nil,
-            dayOfWeek: 0.5,
             morningEnergyNormalized: nil,
             previousDayStepsNormalized: nil,
             previousDayCaloriesNormalized: nil,
@@ -302,7 +270,7 @@ struct FeatureExtractorTests {
             previousDayStepsNormalizedSquared: nil,
             previousDayCaloriesNormalizedSquared: nil
         )
-        #expect(allMissing.availableFeatureCount == 1) // Only dayOfWeek
+        #expect(allMissing.availableFeatureCount == 0)
     }
 
     // MARK: - Normalization Strategy Threshold

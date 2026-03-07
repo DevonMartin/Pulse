@@ -207,15 +207,15 @@ struct TrainingDataCollectorTests {
             sleepDuration: nil
         )
 
-        // Day with empty health metrics still has dayOfWeek + morningEnergy = 2 features
+        // Day with empty health metrics only has morningEnergy = 1 feature
         let days = [
             makeCompleteDay(date: yesterday, metrics: emptyMetrics)
         ]
 
         let examples = await collector.collectTrainingData(from: days)
 
-        // Passes the >= 2 threshold (dayOfWeek + morningEnergy from check-in)
-        #expect(examples.count == 1)
+        // Fails the >= 2 threshold (only morningEnergy from check-in)
+        #expect(examples.count == 0)
     }
 
     // MARK: - Empty Input Tests

@@ -19,7 +19,6 @@ import Foundation
 /// - `hrvNormalized`: HRV in ms, normalized using 20-100ms range
 /// - `rhrNormalized`: Resting HR in bpm, inverted (lower is better)
 /// - `sleepNormalized`: Sleep duration normalized to 0-1
-/// - `dayOfWeek`: Day encoded as 0-1 (Sunday=0, Saturday=1)
 /// - `morningEnergyNormalized`: User's morning energy rating (1-5 → 0-1)
 /// - `previousDayStepsNormalized`: Previous day's step count (0-20k → 0-1)
 /// - `previousDayCaloriesNormalized`: Previous day's active calories (0-1000 → 0-1)
@@ -100,8 +99,6 @@ nonisolated struct FeatureExtractor: Sendable {
         morningEnergy: Int? = nil,
         previousDayMetrics: HealthMetrics? = nil
     ) -> FeatureVector {
-        let date = metrics?.date ?? Date()
-
         let sleepNorm = metrics?.sleepDuration.map { normalizeSleep($0) }
         let prevStepsNorm = previousDayMetrics?.steps.map { normalizeSteps(Double($0)) }
         let prevCaloriesNorm = previousDayMetrics?.activeCalories.map { normalizeCalories($0) }
@@ -110,7 +107,6 @@ nonisolated struct FeatureExtractor: Sendable {
             hrvNormalized: metrics?.hrv.map { normalizeHRV($0) } ?? nil,
             rhrNormalized: metrics?.restingHeartRate.map { normalizeRHR($0) } ?? nil,
             sleepNormalized: sleepNorm,
-            dayOfWeek: extractDayOfWeek(from: date),
             morningEnergyNormalized: morningEnergy.map { normalizeMorningEnergy($0) },
             previousDayStepsNormalized: prevStepsNorm,
             previousDayCaloriesNormalized: prevCaloriesNorm,
@@ -192,13 +188,6 @@ nonisolated struct FeatureExtractor: Sendable {
         return (clamped - caloriesMin) / (caloriesMax - caloriesMin)
     }
 
-    /// Extracts day of week as 0-1 value
-    private func extractDayOfWeek(from date: Date) -> Double {
-        let calendar = Calendar.current
-        let weekday = calendar.component(.weekday, from: date)
-        // Sunday = 1, Saturday = 7 -> normalize to 0-1
-        return Double(weekday - 1) / 6.0
-    }
 }
 
 // MARK: - Feature Vector
@@ -216,9 +205,6 @@ nonisolated struct FeatureVector: Sendable, Equatable {
 
     /// Normalized sleep duration (0-1, optimal sleep scores highest)
     let sleepNormalized: Double?
-
-    /// Day of week (0 = Sunday, 1 = Saturday)
-    let dayOfWeek: Double
 
     /// Normalized morning energy rating (0-1, from 1-5 scale)
     let morningEnergyNormalized: Double?
@@ -247,7 +233,6 @@ nonisolated struct FeatureVector: Sendable, Equatable {
             rhrNormalized ?? defaultValue,
             sleepNormalized ?? defaultValue,
             sleepNormalizedSquared ?? sqDefault,
-            dayOfWeek,
             morningEnergyNormalized ?? defaultValue,
             previousDayStepsNormalized ?? defaultValue,
             previousDayStepsNormalizedSquared ?? sqDefault,
@@ -261,6 +246,6 @@ nonisolated struct FeatureVector: Sendable, Equatable {
     var availableFeatureCount: Int {
         [hrvNormalized, rhrNormalized, sleepNormalized,
          morningEnergyNormalized, previousDayStepsNormalized,
-         previousDayCaloriesNormalized].compactMap { $0 }.count + 1  // +1 for dayOfWeek
+         previousDayCaloriesNormalized].compactMap { $0 }.count
     }
 }

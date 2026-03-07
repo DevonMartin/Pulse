@@ -122,7 +122,7 @@ struct PersonalizedReadinessModelTests {
         let examples = createTrainingExamples(count: 5)
         await model.train(on: examples)
 
-        // Predict with only day of week (not enough features)
+        // Predict with no features (not enough)
         let metrics = HealthMetrics(
             date: Date(),
             restingHeartRate: nil,
@@ -133,7 +133,7 @@ struct PersonalizedReadinessModelTests {
         let result = await model.predict(from: metrics)
 
         if case .insufficientData = result {
-            // Expected - only dayOfWeek available (1 feature)
+            // Expected - no features available (0)
         } else {
             Issue.record("Expected insufficientData result")
         }
@@ -149,7 +149,7 @@ struct PersonalizedReadinessModelTests {
                 hrvNormalized: Double(i) / 10.0,
                 rhrNormalized: 0.5,
                 sleepNormalized: 0.5,
-                dayOfWeek: 0.5,
+
                 morningEnergyNormalized: 0.5,
                 previousDayStepsNormalized: 0.5,
                 previousDayCaloriesNormalized: 0.5,
@@ -214,7 +214,7 @@ struct PersonalizedReadinessModelTests {
                 hrvNormalized: hrvValue,
                 rhrNormalized: 0.5,
                 sleepNormalized: 0.5,
-                dayOfWeek: 0.5,
+
                 morningEnergyNormalized: 0.5,
                 previousDayStepsNormalized: 0.5,
                 previousDayCaloriesNormalized: 0.5,
@@ -266,7 +266,6 @@ struct PersonalizedReadinessModelTests {
                 hrvNormalized: hrvNorm,
                 rhrNormalized: Double.random(in: 0.3...0.7),
                 sleepNormalized: sleepNorm,
-                dayOfWeek: Double(i % 7) / 6.0,
                 morningEnergyNormalized: Double.random(in: 0.3...0.7),
                 previousDayStepsNormalized: stepsNorm,
                 previousDayCaloriesNormalized: Double.random(in: 0.3...0.7),
@@ -314,7 +313,6 @@ struct PersonalizedReadinessModelTests {
                 hrvNormalized: Double.random(in: 0.3...0.7),
                 rhrNormalized: Double.random(in: 0.3...0.7),
                 sleepNormalized: sleepVal,
-                dayOfWeek: Double(i % 7) / 6.0,
                 morningEnergyNormalized: Double.random(in: 0.25...0.75),
                 previousDayStepsNormalized: stepsVal,
                 previousDayCaloriesNormalized: caloriesVal,
