@@ -27,38 +27,44 @@ struct CheckInCard: View {
     let onMorningCheckInTapped: () -> Void
     let onEveningCheckInTapped: () -> Void
 
-    /// Determines what state to show
+    /// Determines what state to show.
+    ///
+    /// Morning and evening windows can overlap during the 3-hour buffer before
+    /// the evening reminder. During overlap, morning takes priority when the
+    /// first check-in hasn't been done yet.
     private var cardState: CardState {
         if isLoading { return .loading }
 
         let hasMorning = day?.hasFirstCheckIn ?? false
         let hasEvening = day?.hasSecondCheckIn ?? false
 
-        // Evening done - show completion (regardless of morning status)
+        // Both done - show completion
         if hasEvening {
             return .allComplete
         }
 
-        // Evening window, evening not done
+        // Morning takes priority: if first check-in isn't done and we're in
+        // the morning window, prompt for it (even during evening overlap)
+        if isMorningWindow && !hasMorning {
+            return .morningPending
+        }
+
+        // Evening window (including early buffer if morning is done)
         if isEveningWindow {
             return .eveningPending
         }
 
-        // Morning window
+        // Morning window, morning done, but not yet in evening window
         if isMorningWindow {
-            if !hasMorning {
-                return .morningPending
-            } else {
-                return .waitingForEvening
-            }
+            return .waitingForEvening
         }
 
-        // Between windows (4-5 PM gap)
+        // Outside all windows with morning done
         if hasMorning {
             return .waitingForEvening
         }
 
-        // Fallback: morning not done, not in morning window, not evening yet
+        // Fallback: morning not done, not in any window
         return .morningMissed
     }
 

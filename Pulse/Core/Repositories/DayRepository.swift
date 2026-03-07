@@ -181,11 +181,13 @@ actor MockDayRepository: DayRepositoryProtocol {
     /// Optional override for "current user day start" - if nil, uses TimeWindows
     private let currentUserDayStartOverride: Date?
 
-    /// Creates a mock repository, optionally pre-populated with sample data
-    init(withSampleData: Bool = false, currentUserDayStart: Date? = nil) {
+    /// Creates a mock repository, optionally pre-populated with sample data or initial days.
+    init(withSampleData: Bool = false, currentUserDayStart: Date? = nil, initialDays: [Day] = []) {
         self.currentUserDayStartOverride = currentUserDayStart
         if withSampleData {
-            days = Self.generateSampleDays()
+            days = Self.generateSampleDays() + initialDays
+        } else {
+            days = initialDays
         }
     }
 

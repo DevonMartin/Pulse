@@ -146,9 +146,19 @@ final class AppContainer {
         self.readinessService = ReadinessService(rulesCalculator: readinessCalculator)
 
         #if DEBUG
-        // Use mock repository with test data when UI testing
+        // Use mock repository with test data when UI testing.
+        // Test Day is created synchronously via initialDays to avoid race conditions
+        // with DashboardView's async data loading.
         if AppContainer.isUITesting {
-            let mockRepo = MockDayRepository()
+            // Pin mock HealthKit to return the same metrics used by test Days,
+            // preventing loadAndUpdateToday() from detecting changes and
+            // recalculating (overwriting) the pre-set readiness score.
+            if let mock = healthKit as? MockHealthKitService {
+                mock.mockMetrics = Self.uiTestHealthMetrics
+            }
+
+            let initialDays = Self.makeUITestDays()
+            let mockRepo = MockDayRepository(initialDays: initialDays)
             self.dayRepository = mockRepo
 
             // Create the Day service
@@ -159,11 +169,6 @@ final class AppContainer {
             )
 
             self.notificationService = MockNotificationService()
-
-            // Set up test Day based on launch arguments
-            Task { @MainActor in
-                await Self.setupUITestDay(in: mockRepo)
-            }
             return
         }
         #endif
@@ -317,64 +322,55 @@ final class AppContainer {
     // MARK: - UI Testing Support
 
     #if DEBUG
-    /// Sets up a Day in the mock repository based on UI test launch arguments.
-    private static func setupUITestDay(in repository: MockDayRepository) async {
+    /// Fixed health metrics used for UI test Days and the mock HealthKit service.
+    /// Both must match to prevent loadAndUpdateToday() from recalculating scores.
+    static let uiTestHealthMetrics = HealthMetrics(
+        date: TimeWindows.currentUserDayStart,
+        restingHeartRate: 62,
+        hrv: 45,
+        sleepDuration: 7 * 3600,
+        steps: 8000,
+        activeCalories: 350
+    )
+
+    /// Creates test Day(s) synchronously based on UI test launch arguments.
+    /// Returns an array of Days to pre-populate the mock repository.
+    private static func makeUITestDays() -> [Day] {
         let config = UITestCheckInConfig.current
         let today = TimeWindows.currentUserDayStart
-
-        // Create health metrics for the test
-        let healthMetrics = HealthMetrics(
-            date: today,
-            restingHeartRate: 62,
-            hrv: 45,
-            sleepDuration: 7 * 3600,
-            steps: 8000,
-            activeCalories: 350
-        )
-
-        // Build the Day based on configuration
-        var firstCheckIn: CheckInSlot? = nil
-        var secondCheckIn: CheckInSlot? = nil
-        var readinessScore: ReadinessScore? = nil
+        let healthMetrics = uiTestHealthMetrics
 
         switch config {
-        case .noCheckIn, .noMorningCheckIn:
-            // No check-ins - Day may or may not exist
-            // For noMorningCheckIn in evening, we still need a Day record
-            if config == .noMorningCheckIn {
-                let day = Day(startDate: today, healthMetrics: healthMetrics)
-                try? await repository.save(day)
-            }
-            return
+        case .noCheckIn:
+            return []
+
+        case .noMorningCheckIn:
+            return [Day(startDate: today, healthMetrics: healthMetrics)]
 
         case .withMorningCheckIn:
             let energy = UITestScoreRange.current.energyLevel
-            firstCheckIn = CheckInSlot(energyLevel: energy)
-            // Use a pre-computed readiness score for UI testing
-            readinessScore = Self.makeTestReadinessScore(date: today, healthMetrics: healthMetrics, energyLevel: energy)
+            return [Day(
+                startDate: today,
+                firstCheckIn: CheckInSlot(energyLevel: energy),
+                healthMetrics: healthMetrics,
+                readinessScore: makeTestReadinessScore(date: today, healthMetrics: healthMetrics, energyLevel: energy)
+            )]
 
         case .bothComplete:
             let energy = UITestScoreRange.current.energyLevel
-            firstCheckIn = CheckInSlot(energyLevel: energy)
-            secondCheckIn = CheckInSlot(energyLevel: max(1, energy - 1))
-            readinessScore = Self.makeTestReadinessScore(date: today, healthMetrics: healthMetrics, energyLevel: energy)
+            return [Day(
+                startDate: today,
+                firstCheckIn: CheckInSlot(energyLevel: energy),
+                secondCheckIn: CheckInSlot(energyLevel: max(1, energy - 1)),
+                healthMetrics: healthMetrics,
+                readinessScore: makeTestReadinessScore(date: today, healthMetrics: healthMetrics, energyLevel: energy)
+            )]
         }
-
-        let day = Day(
-            startDate: today,
-            firstCheckIn: firstCheckIn,
-            secondCheckIn: secondCheckIn,
-            healthMetrics: healthMetrics,
-            readinessScore: readinessScore
-        )
-
-        try? await repository.save(day)
     }
 
     /// Creates a test readiness score for UI testing (avoids async calculation).
     private static func makeTestReadinessScore(date: Date, healthMetrics: HealthMetrics, energyLevel: Int) -> ReadinessScore {
         let testScore = UITestScoreRange.current.score
-        // Energy level maps directly: 1=20, 2=40, 3=60, 4=80, 5=100
         let energyScore = energyLevel * 20
         return ReadinessScore(
             date: date,

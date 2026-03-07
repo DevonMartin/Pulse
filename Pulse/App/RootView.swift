@@ -23,6 +23,12 @@ struct RootView: View {
 	// MARK: - Initialization
 
 	init() {
+		#if DEBUG
+		if CommandLine.arguments.contains("--uitesting") {
+			_showOnboarding = State(initialValue: false)
+			return
+		}
+		#endif
 		let completed = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
 		_showOnboarding = State(initialValue: !completed)
 	}
@@ -117,17 +123,12 @@ struct RootView: View {
 		// Get current day's state
 		let currentDay = try? await container.dayRepository.getCurrentDayIfExists()
 
-		// Check time window and completion status
-		if TimeWindows.isMorningWindow {
-			// Morning window: show first check-in if not already done
-			if currentDay?.hasFirstCheckIn != true {
-				showingMorningCheckIn = true
-			}
-		} else if TimeWindows.isEveningWindow {
-			// Evening window: show second check-in if not already done
-			if currentDay?.hasSecondCheckIn != true {
-				showingEveningCheckIn = true
-			}
+		// Morning and evening windows can overlap during the evening buffer.
+		// Morning takes priority when the first check-in isn't done.
+		if TimeWindows.isMorningWindow && currentDay?.hasFirstCheckIn != true {
+			showingMorningCheckIn = true
+		} else if TimeWindows.isEveningWindow && currentDay?.hasSecondCheckIn != true {
+			showingEveningCheckIn = true
 		}
 		// Outside both windows or already checked in: just open the app
 	}

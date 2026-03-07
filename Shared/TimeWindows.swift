@@ -12,7 +12,11 @@ import Foundation
 ///
 /// Check-in times are user-configurable via App Group UserDefaults,
 /// allowing both the app and widget to read the same values.
-/// Supports cross-day schedules (e.g., night shift: 6 PM → 6 AM).
+///
+/// Each check-in has a 3-hour buffer window before the scheduled reminder,
+/// so the user can check in early. The morning and evening windows can overlap
+/// during the buffer zone — UI consumers resolve priority (morning first if
+/// the first check-in isn't done).
 ///
 /// Note: All members are nonisolated to allow use from any actor context.
 /// These are pure functions based on Date calculations with no mutable state.
@@ -73,17 +77,36 @@ enum TimeWindows: Sendable {
         sharedDefaults.set(eveningMinute, forKey: Keys.eveningCheckInMinute)
     }
 
+    // MARK: - Window Buffer
+
+    /// Hours before the scheduled reminder that the check-in window opens.
+    nonisolated private static let windowBufferHours = 3
+
+    /// The hour when the morning check-in window opens (3 hours before morning reminder).
+    /// Clamped at midnight for AM morning times to avoid wrapping into PM.
+    nonisolated static var morningWindowOpensHour: Int {
+        max(0, morningCheckInHour - windowBufferHours)
+    }
+
+    /// The hour when the evening check-in window opens (3 hours before evening reminder).
+    /// Wraps past midnight (e.g., evening at 1 AM → window opens at 10 PM).
+    nonisolated static var eveningWindowOpensHour: Int {
+        (eveningCheckInHour - windowBufferHours + 24) % 24
+    }
+
     // MARK: - Cross-Day Detection
 
-    /// True when the morning check-in hour is at or after the evening hour,
-    /// indicating the user's "day" spans two calendar days (e.g., night shift).
+    /// True when the schedule represents a night-shift pattern where the morning
+    /// check-in is in the PM. A morning=11am, evening=12:30am schedule is NOT
+    /// cross-day — it's a normal day with a late evening. Only PM morning times
+    /// (>= 12) qualify as true cross-day schedules.
     nonisolated static var isCrossDaySchedule: Bool {
         #if DEBUG
         if testingOverrideCrossDaySchedule {
             return true
         }
         #endif
-        return morningCheckInHour >= eveningCheckInHour
+        return morningCheckInHour >= 12 && morningCheckInHour >= eveningCheckInHour
     }
 
     // MARK: - Testing Overrides (DEBUG only)
@@ -116,6 +139,19 @@ enum TimeWindows: Sendable {
     }
     #endif
 
+    // MARK: - Circular Interval Helper
+
+    /// Checks if `now` falls within the interval [start, end) on a circular 24-hour clock.
+    /// Handles intervals that wrap past midnight (e.g., [22, 6) = 10 PM to 6 AM).
+    nonisolated private static func isInWindow(now: Int, from start: Int, to end: Int) -> Bool {
+        if start <= end {
+            return now >= start && now < end
+        } else {
+            // Wraps past midnight
+            return now >= start || now < end
+        }
+    }
+
     // MARK: - Current State
 
     nonisolated static var currentHour: Int {
@@ -124,9 +160,14 @@ enum TimeWindows: Sendable {
 
     /// True when the current time is in the first (morning) check-in window.
     ///
-    /// - **Normal schedule**: morning window is any hour before the evening check-in hour.
-    /// - **Cross-day schedule**: morning window wraps around midnight
-    ///   (e.g., morning=18, evening=6 → hours 18-23 and 0-5 are morning).
+    /// The morning window opens 3 hours before the morning reminder and runs
+    /// until the evening check-in hour. This window can overlap with the evening
+    /// window during the 3-hour buffer before the evening reminder.
+    ///
+    /// Examples (morning reminder → evening reminder):
+    /// - 8 AM → 7 PM: morning window is 5 AM – 7 PM
+    /// - 11 AM → 12:30 AM: morning window is 8 AM – 12 AM (wraps to evening hour)
+    /// - 6 PM → 6 AM: morning window is 3 PM – 6 AM (wraps past midnight)
     nonisolated static var isMorningWindow: Bool {
         #if DEBUG
         if let override = testingOverrideMorningWindow {
@@ -134,19 +175,19 @@ enum TimeWindows: Sendable {
         }
         #endif
 
-        let hour = currentHour
-        if isCrossDaySchedule {
-            return hour >= morningCheckInHour || hour < eveningCheckInHour
-        } else {
-            return hour < eveningCheckInHour
-        }
+        return isInWindow(now: currentHour, from: morningWindowOpensHour, to: eveningCheckInHour)
     }
 
     /// True when the current time is in the second (evening) check-in window.
     ///
-    /// - **Normal schedule**: evening window is any hour at or after the evening check-in hour.
-    /// - **Cross-day schedule**: evening window is between evening and morning hours
-    ///   (e.g., morning=18, evening=6 → hours 6-17 are evening).
+    /// The evening window opens 3 hours before the evening reminder and runs
+    /// until the morning window opens next day. This window can overlap with the
+    /// morning window during the 3-hour buffer before the evening reminder.
+    ///
+    /// Examples (morning reminder → evening reminder):
+    /// - 8 AM → 7 PM: evening window is 4 PM – 5 AM (wraps past midnight)
+    /// - 11 AM → 12:30 AM: evening window is 9 PM – 8 AM (wraps past midnight)
+    /// - 6 PM → 6 AM: evening window is 3 AM – 3 PM
     nonisolated static var isEveningWindow: Bool {
         #if DEBUG
         if let override = testingOverrideEveningWindow {
@@ -154,23 +195,22 @@ enum TimeWindows: Sendable {
         }
         #endif
 
-        let hour = currentHour
-        if isCrossDaySchedule {
-            return hour >= eveningCheckInHour && hour < morningCheckInHour
-        } else {
-            return hour >= eveningCheckInHour
-        }
+        return isInWindow(now: currentHour, from: eveningWindowOpensHour, to: morningWindowOpensHour)
     }
 
     // MARK: - User Day Boundaries
 
     /// The hour when a new "user day" begins.
-    /// For normal schedules this is 0 (midnight).
-    /// For cross-day schedules it matches the morning check-in hour
-    /// (e.g., morning at 6 PM → user day starts at 18:00).
+    ///
+    /// Aligned with when the morning window opens so that day boundaries and
+    /// window boundaries are consistent. For standard schedules where the evening
+    /// doesn't wrap past midnight, this is 0 (midnight) to preserve backward
+    /// compatibility with existing Day records.
     nonisolated static var userDayStartHour: Int {
-        if isCrossDaySchedule {
-            return morningCheckInHour
+        // When the evening check-in hour falls before the morning window opens,
+        // the schedule wraps past midnight and needs a non-midnight day boundary
+        if eveningCheckInHour < morningWindowOpensHour {
+            return morningWindowOpensHour
         }
         return 0
     }
@@ -183,10 +223,10 @@ enum TimeWindows: Sendable {
 
     /// Returns the start of the "user day" that contains the given date.
     ///
-    /// For example, if userDayStartHour is 18 (6 PM):
-    /// - 10 PM Monday → user day started Monday 6 PM
-    /// - 2 AM Tuesday → user day started Monday 6 PM
-    /// - 7 PM Tuesday → user day started Tuesday 6 PM
+    /// For example, if userDayStartHour is 8 (morning=11 AM, evening=12:30 AM):
+    /// - 10 AM Monday → user day started Monday 8 AM
+    /// - 1 AM Tuesday → user day started Monday 8 AM (evening check-in same day)
+    /// - 9 AM Tuesday → user day started Tuesday 8 AM
     nonisolated static func startOfUserDay(for date: Date) -> Date {
         let calendar = Calendar.current
         let hour = calendar.component(.hour, from: date)

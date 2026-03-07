@@ -116,11 +116,11 @@ final class DashboardUITests: XCTestCase {
         let readinessCard = app.staticTexts["Today's Readiness"]
         XCTAssertTrue(readinessCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "Score-Good-75")
-
-        // Should show "Good" description for score 75
+        // Should show "Good" description for score 75 (wait for async data load)
         let goodLabel = app.staticTexts["Good"]
-        XCTAssertTrue(goodLabel.exists, "Expected 'Good' description for score in 61-80 range")
+        XCTAssertTrue(goodLabel.waitForExistence(timeout: 5), "Expected 'Good' description for score in 61-80 range")
+
+        takeScreenshot(name: "Score-Good-75")
     }
 
     @MainActor
@@ -131,11 +131,11 @@ final class DashboardUITests: XCTestCase {
         let readinessCard = app.staticTexts["Today's Readiness"]
         XCTAssertTrue(readinessCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "Score-Excellent-90")
-
-        // Should show "Excellent" description for score 90
+        // Should show "Excellent" description for score 90 (wait for async data load)
         let excellentLabel = app.staticTexts["Excellent"]
-        XCTAssertTrue(excellentLabel.exists, "Expected 'Excellent' description for score in 81-100 range")
+        XCTAssertTrue(excellentLabel.waitForExistence(timeout: 5), "Expected 'Excellent' description for score in 81-100 range")
+
+        takeScreenshot(name: "Score-Excellent-90")
     }
 
     @MainActor
@@ -146,11 +146,11 @@ final class DashboardUITests: XCTestCase {
         let readinessCard = app.staticTexts["Today's Readiness"]
         XCTAssertTrue(readinessCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "Score-Moderate-55")
-
-        // Should show "Moderate" description for score 55
+        // Should show "Moderate" description for score 55 (wait for async data load)
         let moderateLabel = app.staticTexts["Moderate"]
-        XCTAssertTrue(moderateLabel.exists, "Expected 'Moderate' description for score in 41-60 range")
+        XCTAssertTrue(moderateLabel.waitForExistence(timeout: 5), "Expected 'Moderate' description for score in 41-60 range")
+
+        takeScreenshot(name: "Score-Moderate-55")
     }
 
     @MainActor
@@ -161,11 +161,11 @@ final class DashboardUITests: XCTestCase {
         let readinessCard = app.staticTexts["Today's Readiness"]
         XCTAssertTrue(readinessCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "Score-Poor-35")
-
-        // Should show "Poor" description for score 35
+        // Should show "Poor" description for score 35 (wait for async data load)
         let poorLabel = app.staticTexts["Poor"]
-        XCTAssertTrue(poorLabel.exists, "Expected 'Poor' description for score in 0-40 range")
+        XCTAssertTrue(poorLabel.waitForExistence(timeout: 5), "Expected 'Poor' description for score in 0-40 range")
+
+        takeScreenshot(name: "Score-Poor-35")
     }
 
     // MARK: - Score Recommendations Tests
@@ -178,10 +178,10 @@ final class DashboardUITests: XCTestCase {
         let readinessCard = app.staticTexts["Today's Readiness"]
         XCTAssertTrue(readinessCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "Recommendation-Good")
-
         let recommendation = app.staticTexts["You're ready for a productive day"]
-        XCTAssertTrue(recommendation.exists, "Expected good recommendation text")
+        XCTAssertTrue(recommendation.waitForExistence(timeout: 5), "Expected good recommendation text")
+
+        takeScreenshot(name: "Recommendation-Good")
     }
 
     @MainActor
@@ -192,10 +192,10 @@ final class DashboardUITests: XCTestCase {
         let readinessCard = app.staticTexts["Today's Readiness"]
         XCTAssertTrue(readinessCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "Recommendation-Excellent")
-
         let recommendation = app.staticTexts["You're at your best today"]
-        XCTAssertTrue(recommendation.exists, "Expected excellent recommendation text")
+        XCTAssertTrue(recommendation.waitForExistence(timeout: 5), "Expected excellent recommendation text")
+
+        takeScreenshot(name: "Recommendation-Excellent")
     }
 
     @MainActor
@@ -206,10 +206,10 @@ final class DashboardUITests: XCTestCase {
         let readinessCard = app.staticTexts["Today's Readiness"]
         XCTAssertTrue(readinessCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "Recommendation-Moderate")
-
         let recommendation = app.staticTexts["A lighter day might serve you well"]
-        XCTAssertTrue(recommendation.exists, "Expected moderate recommendation text")
+        XCTAssertTrue(recommendation.waitForExistence(timeout: 5), "Expected moderate recommendation text")
+
+        takeScreenshot(name: "Recommendation-Moderate")
     }
 
     @MainActor
@@ -220,10 +220,10 @@ final class DashboardUITests: XCTestCase {
         let readinessCard = app.staticTexts["Today's Readiness"]
         XCTAssertTrue(readinessCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "Recommendation-Poor")
-
         let recommendation = app.staticTexts["Take it easy today and prioritize rest"]
-        XCTAssertTrue(recommendation.exists, "Expected poor recommendation text")
+        XCTAssertTrue(recommendation.waitForExistence(timeout: 5), "Expected poor recommendation text")
+
+        takeScreenshot(name: "Recommendation-Poor")
     }
 
     // MARK: - Activity Card Tests
@@ -401,11 +401,11 @@ final class DashboardUITests: XCTestCase {
         let readinessCard = app.staticTexts["Today's Readiness"]
         XCTAssertTrue(readinessCard.waitForExistence(timeout: 5))
 
-        takeScreenshot(name: "CrossDay-Readiness-Score")
-
-        // Should show score and description normally
+        // Should show score and description normally (wait for async data load)
         let goodLabel = app.staticTexts["Good"]
-        XCTAssertTrue(goodLabel.exists, "Expected score description for cross-day schedule")
+        XCTAssertTrue(goodLabel.waitForExistence(timeout: 5), "Expected score description for cross-day schedule")
+
+        takeScreenshot(name: "CrossDay-Readiness-Score")
     }
 
     @MainActor
