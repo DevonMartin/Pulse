@@ -137,6 +137,17 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section("About") {
+            Link(destination: URL(string: "https://devonmartin.github.io/Pulse/")!) {
+                HStack {
+                    Text("Privacy Policy")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             HStack {
                 Text("Version")
                 Spacer()
