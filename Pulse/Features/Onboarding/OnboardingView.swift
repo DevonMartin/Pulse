@@ -279,7 +279,7 @@ struct OnboardingView: View {
                 personalizationStage(
                     icon: "brain",
                     color: .orange,
-                    title: "Week 1",
+                    title: "First Few Days",
                     description: "Scores use proven general patterns — HRV, resting heart rate, sleep, and your energy ratings.",
                     progress: 0.1
                 )
@@ -287,8 +287,8 @@ struct OnboardingView: View {
                 personalizationStage(
                     icon: "brain.head.profile",
                     color: .blue,
-                    title: "Weeks 2-4",
-                    description: "As you check in, an on-device model starts learning your personal patterns and gradually shapes your score.",
+                    title: "Days 3–30",
+                    description: "After 3 days of check-ins, an on-device model starts learning your personal patterns and gradually shapes your score.",
                     progress: 0.5
                 )
 
