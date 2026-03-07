@@ -138,9 +138,14 @@ actor DayService {
         if updateRecoveryMetrics && metricsChanged && day.hasFirstCheckIn {
             if let energyLevel = day.firstCheckIn?.energyLevel,
                let metrics = day.healthMetrics {
+                // Fetch previous day's metrics for ML lagging indicators
+                let recentDays = try await dayRepository.getRecentDays(limit: 2)
+                let previousDayMetrics = recentDays.count >= 2 ? recentDays[1].healthMetrics : nil
+
                 if let newScore = await readinessService.calculate(
                     from: metrics,
-                    energyLevel: energyLevel
+                    energyLevel: energyLevel,
+                    previousDayMetrics: previousDayMetrics
                 ) {
                     day.readinessScore = newScore
                     scoreRecalculated = true

@@ -127,11 +127,19 @@ struct CheckInView: View {
                 day.healthMetrics = todayMetrics
             }
 
+            // Fetch previous day's metrics for ML lagging indicators (steps/calories)
+            let previousDayMetrics: HealthMetrics? = try? await {
+                let recentDays = try await container.dayRepository.getRecentDays(limit: 2)
+                // recentDays is ordered most recent first; the second entry is yesterday
+                return recentDays.count >= 2 ? recentDays[1].healthMetrics : nil
+            }()
+
             // Calculate today's readiness score using blended rules + ML
             if let metrics = day.healthMetrics,
                let score = await container.readinessService.calculate(
                 from: metrics,
-                energyLevel: selectedEnergy
+                energyLevel: selectedEnergy,
+                previousDayMetrics: previousDayMetrics
             ) {
                 day.readinessScore = score
             }

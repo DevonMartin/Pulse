@@ -238,15 +238,27 @@ struct FeatureExtractorTests {
             hrvNormalized: 0.5,
             rhrNormalized: nil,
             sleepNormalized: 0.8,
-            dayOfWeek: 0.5
+            dayOfWeek: 0.5,
+            morningEnergyNormalized: 0.75,
+            previousDayStepsNormalized: nil,
+            previousDayCaloriesNormalized: nil,
+            sleepNormalizedSquared: 0.64,
+            previousDayStepsNormalizedSquared: nil,
+            previousDayCaloriesNormalizedSquared: nil
         )
 
         let array = features.toArray(defaultValue: 0.5)
 
-        #expect(array[0] == 0.5) // HRV
-        #expect(array[1] == 0.5) // RHR (default)
-        #expect(array[2] == 0.8) // Sleep
-        #expect(array[3] == 0.5) // Day of week
+        #expect(array[0] == 0.5)    // HRV
+        #expect(array[1] == 0.5)    // RHR (default)
+        #expect(array[2] == 0.8)    // Sleep
+        #expect(array[3] == 0.64)   // Sleep² (0.8²)
+        #expect(array[4] == 0.5)    // Day of week
+        #expect(array[5] == 0.75)   // Morning energy
+        #expect(array[6] == 0.5)    // Prev steps (default)
+        #expect(array[7] == 0.25)   // Prev steps² (default 0.5² = 0.25)
+        #expect(array[8] == 0.5)    // Prev calories (default)
+        #expect(array[9] == 0.25)   // Prev calories² (default 0.5² = 0.25)
     }
 
     @Test func availableFeatureCountIsCorrect() {
@@ -254,23 +266,41 @@ struct FeatureExtractorTests {
             hrvNormalized: 0.5,
             rhrNormalized: 0.5,
             sleepNormalized: 0.5,
-            dayOfWeek: 0.5
+            dayOfWeek: 0.5,
+            morningEnergyNormalized: 0.5,
+            previousDayStepsNormalized: 0.5,
+            previousDayCaloriesNormalized: 0.5,
+            sleepNormalizedSquared: 0.25,
+            previousDayStepsNormalizedSquared: 0.25,
+            previousDayCaloriesNormalizedSquared: 0.25
         )
-        #expect(allAvailable.availableFeatureCount == 4)
+        #expect(allAvailable.availableFeatureCount == 7)
 
         let twoMissing = FeatureVector(
             hrvNormalized: 0.5,
             rhrNormalized: nil,
             sleepNormalized: nil,
-            dayOfWeek: 0.5
+            dayOfWeek: 0.5,
+            morningEnergyNormalized: 0.5,
+            previousDayStepsNormalized: nil,
+            previousDayCaloriesNormalized: nil,
+            sleepNormalizedSquared: nil,
+            previousDayStepsNormalizedSquared: nil,
+            previousDayCaloriesNormalizedSquared: nil
         )
-        #expect(twoMissing.availableFeatureCount == 2)
+        #expect(twoMissing.availableFeatureCount == 3)
 
         let allMissing = FeatureVector(
             hrvNormalized: nil,
             rhrNormalized: nil,
             sleepNormalized: nil,
-            dayOfWeek: 0.5
+            dayOfWeek: 0.5,
+            morningEnergyNormalized: nil,
+            previousDayStepsNormalized: nil,
+            previousDayCaloriesNormalized: nil,
+            sleepNormalizedSquared: nil,
+            previousDayStepsNormalizedSquared: nil,
+            previousDayCaloriesNormalizedSquared: nil
         )
         #expect(allMissing.availableFeatureCount == 1) // Only dayOfWeek
     }
@@ -295,5 +325,113 @@ struct FeatureExtractorTests {
 
         // Linear: (10-4)/(12-4) = 6/8 = 0.75
         #expect(features.sleepNormalized == 0.75)
+    }
+
+    // MARK: - Morning Energy Normalization
+
+    @Test func morningEnergyNormalization() {
+        let extractor = FeatureExtractor(trainingExampleCount: 0)
+        let metrics = HealthMetrics(date: Date(), hrv: 50)
+
+        let features1 = extractor.extractFeatures(from: metrics, morningEnergy: 1)
+        let features3 = extractor.extractFeatures(from: metrics, morningEnergy: 3)
+        let features5 = extractor.extractFeatures(from: metrics, morningEnergy: 5)
+
+        #expect(features1.morningEnergyNormalized == 0.0)
+        #expect(features3.morningEnergyNormalized == 0.5)
+        #expect(features5.morningEnergyNormalized == 1.0)
+    }
+
+    @Test func morningEnergyNilWhenNotProvided() {
+        let extractor = FeatureExtractor(trainingExampleCount: 0)
+        let metrics = HealthMetrics(date: Date(), hrv: 50)
+
+        let features = extractor.extractFeatures(from: metrics)
+
+        #expect(features.morningEnergyNormalized == nil)
+    }
+
+    // MARK: - Previous Day Steps/Calories Normalization
+
+    @Test func previousDayStepsNormalization() {
+        let extractor = FeatureExtractor(trainingExampleCount: 0)
+        let metrics = HealthMetrics(date: Date(), hrv: 50)
+        let prevMetrics = HealthMetrics(date: Date(), steps: 10_000, activeCalories: 500)
+
+        let features = extractor.extractFeatures(from: metrics, previousDayMetrics: prevMetrics)
+
+        #expect(features.previousDayStepsNormalized == 0.5) // 10000/20000
+        #expect(features.previousDayCaloriesNormalized == 0.5) // 500/1000
+    }
+
+    @Test func previousDayMetricsNilWhenNotProvided() {
+        let extractor = FeatureExtractor(trainingExampleCount: 0)
+        let metrics = HealthMetrics(date: Date(), hrv: 50)
+
+        let features = extractor.extractFeatures(from: metrics)
+
+        #expect(features.previousDayStepsNormalized == nil)
+        #expect(features.previousDayCaloriesNormalized == nil)
+    }
+
+    @Test func previousDayStepsClampsAtMax() {
+        let extractor = FeatureExtractor(trainingExampleCount: 0)
+        let metrics = HealthMetrics(date: Date(), hrv: 50)
+        let prevMetrics = HealthMetrics(date: Date(), steps: 30_000)
+
+        let features = extractor.extractFeatures(from: metrics, previousDayMetrics: prevMetrics)
+
+        #expect(features.previousDayStepsNormalized == 1.0)
+    }
+
+    // MARK: - Polynomial (Squared) Feature Tests
+
+    @Test func sleepSquaredIsComputedFromLinearValue() {
+        let extractor = FeatureExtractor(trainingExampleCount: 30) // Mature phase for predictable values
+        let metrics = HealthMetrics(date: Date(), sleepDuration: 8 * 3600)
+
+        let features = extractor.extractFeatures(from: metrics)
+
+        // Linear: (8-4)/(12-4) = 0.5, squared = 0.25
+        #expect(features.sleepNormalized == 0.5)
+        #expect(features.sleepNormalizedSquared == 0.25)
+    }
+
+    @Test func stepsSquaredIsComputedFromLinearValue() {
+        let extractor = FeatureExtractor(trainingExampleCount: 0)
+        let metrics = HealthMetrics(date: Date(), hrv: 50)
+        let prevMetrics = HealthMetrics(date: Date(), steps: 10_000)
+
+        let features = extractor.extractFeatures(from: metrics, previousDayMetrics: prevMetrics)
+
+        // 10000/20000 = 0.5, squared = 0.25
+        #expect(features.previousDayStepsNormalized == 0.5)
+        #expect(features.previousDayStepsNormalizedSquared == 0.25)
+    }
+
+    @Test func caloriesSquaredIsComputedFromLinearValue() {
+        let extractor = FeatureExtractor(trainingExampleCount: 0)
+        let metrics = HealthMetrics(date: Date(), hrv: 50)
+        let prevMetrics = HealthMetrics(date: Date(), activeCalories: 500)
+
+        let features = extractor.extractFeatures(from: metrics, previousDayMetrics: prevMetrics)
+
+        // 500/1000 = 0.5, squared = 0.25
+        #expect(features.previousDayCaloriesNormalized == 0.5)
+        #expect(features.previousDayCaloriesNormalizedSquared == 0.25)
+    }
+
+    @Test func squaredFeaturesAreNilWhenBaseIsNil() {
+        let extractor = FeatureExtractor(trainingExampleCount: 0)
+        let metrics = HealthMetrics(date: Date(), sleepDuration: nil)
+
+        let features = extractor.extractFeatures(from: metrics)
+
+        #expect(features.sleepNormalized == nil)
+        #expect(features.sleepNormalizedSquared == nil)
+        #expect(features.previousDayStepsNormalized == nil)
+        #expect(features.previousDayStepsNormalizedSquared == nil)
+        #expect(features.previousDayCaloriesNormalized == nil)
+        #expect(features.previousDayCaloriesNormalizedSquared == nil)
     }
 }

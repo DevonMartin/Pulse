@@ -43,6 +43,9 @@ Thumbs.db
 timeline.xctimeline
 playground.xcworkspace
 
+# Claude Code
+.claude/
+
 # App-specific secrets (if any added later)
 Secrets.swift
 *.pem

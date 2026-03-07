@@ -32,6 +32,9 @@ actor TrainingDataCollector {
     /// - < 30 examples: Uses opinionated normalization (7-9 hours sleep is optimal)
     /// - 30+ examples: Uses linear normalization (model learns optimal)
     ///
+    /// Days are sorted by date internally so each day can look back at the previous
+    /// day's activity metrics (steps/calories) as lagging indicators.
+    ///
     /// - Parameters:
     ///   - days: Completed Days (both check-ins done)
     ///   - currentExampleCount: Current number of training examples (for normalization strategy)
@@ -43,16 +46,26 @@ actor TrainingDataCollector {
         // Create feature extractor with appropriate normalization strategy
         let featureExtractor = FeatureExtractor(trainingExampleCount: currentExampleCount)
 
+        // Sort days by date first so we can look back for previous-day metrics
+        let sortedDays = days.sorted { $0.startDate < $1.startDate }
+
         var examples: [TrainingExample] = []
 
-        for day in days {
+        for (index, day) in sortedDays.enumerated() {
             // Skip incomplete days
             guard let blendedScore = day.blendedEnergyScore else {
                 continue
             }
 
-            // Extract features from health metrics
-            let features = featureExtractor.extractFeatures(from: day.healthMetrics)
+            // Look back to find the previous day's metrics for lagging indicators
+            let previousDayMetrics: HealthMetrics? = index > 0 ? sortedDays[index - 1].healthMetrics : nil
+
+            // Extract features from health metrics, morning energy, and previous day
+            let features = featureExtractor.extractFeatures(
+                from: day.healthMetrics,
+                morningEnergy: day.firstCheckIn?.energyLevel,
+                previousDayMetrics: previousDayMetrics
+            )
 
             // Only include if we have enough feature data
             guard features.availableFeatureCount >= 2 else {
@@ -66,7 +79,6 @@ actor TrainingDataCollector {
             ))
         }
 
-        // Sort by date (oldest first) for consistent training
-        return examples.sorted { $0.date < $1.date }
+        return examples
     }
 }

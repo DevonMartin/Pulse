@@ -19,8 +19,9 @@ protocol ReadinessServiceProtocol: Sendable {
     /// - Parameters:
     ///   - metrics: Health data from HealthKit
     ///   - energyLevel: User's subjective energy rating (1-5)
+    ///   - previousDayMetrics: Previous day's health metrics (steps/calories used as lagging indicators)
     /// - Returns: A ReadinessScore with breakdown and confidence
-    func calculate(from metrics: HealthMetrics?, energyLevel: Int?) async -> ReadinessScore?
+    func calculate(from metrics: HealthMetrics?, energyLevel: Int?, previousDayMetrics: HealthMetrics?) async -> ReadinessScore?
 
     /// Triggers model retraining with completed Days.
     ///
@@ -101,14 +102,18 @@ actor ReadinessService: ReadinessServiceProtocol {
 
     // MARK: - ReadinessServiceProtocol
 
-    func calculate(from metrics: HealthMetrics?, energyLevel: Int?) async -> ReadinessScore? {
+    func calculate(from metrics: HealthMetrics?, energyLevel: Int?, previousDayMetrics: HealthMetrics? = nil) async -> ReadinessScore? {
         // Always calculate rules-based score as baseline/fallback
         guard let rulesScore = rulesCalculator.calculate(from: metrics, energyLevel: energyLevel) else {
             return nil
         }
 
-        // Try to get ML prediction
-        let mlPrediction = await mlModel.predict(from: metrics)
+        // Try to get ML prediction (includes morning energy + previous day activity)
+        let mlPrediction = await mlModel.predict(
+            from: metrics,
+            morningEnergy: energyLevel,
+            previousDayMetrics: previousDayMetrics
+        )
 
         // Calculate blend weight based on days of data
         let weight = mlWeight
@@ -190,7 +195,7 @@ actor MockReadinessService: ReadinessServiceProtocol {
     var mockMLWeight: Double = 0.0
     var mockExampleCount: Int = 0
 
-    func calculate(from metrics: HealthMetrics?, energyLevel: Int?) async -> ReadinessScore? {
+    func calculate(from metrics: HealthMetrics?, energyLevel: Int?, previousDayMetrics: HealthMetrics? = nil) async -> ReadinessScore? {
         if let mock = mockScore {
             return mock
         }

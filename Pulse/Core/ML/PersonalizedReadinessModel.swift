@@ -14,7 +14,8 @@ import Foundation
 ///
 /// ## Algorithm
 /// Uses weighted linear regression with ridge regularization:
-/// - Input: Normalized health metrics (HRV, RHR, sleep, day of week)
+/// - Input: Normalized health metrics (HRV, RHR, sleep, day of week,
+///   morning energy, previous-day steps, previous-day calories)
 /// - Output: Predicted readiness score (20-100)
 /// - Label: Blended energy (40% AM + 60% PM)
 ///
@@ -49,8 +50,11 @@ actor PersonalizedReadinessModel {
 
     // MARK: - Model Parameters
 
+    /// Number of features (excluding bias term)
+    private let featureCount = 10
+
     /// Learned weights for each feature + bias term
-    /// Order: [bias, hrv, rhr, sleep, dayOfWeek]
+    /// Order: [bias, hrv, rhr, sleep, sleepSq, dayOfWeek, morningEnergy, prevSteps, prevStepsSq, prevCalories, prevCaloriesSq]
     private var weights: [Double]?
 
     /// Current training status
@@ -79,7 +83,7 @@ actor PersonalizedReadinessModel {
     /// Call this on app launch to restore the trained model.
     func loadSavedModel() {
         guard let savedWeights = UserDefaults.standard.array(forKey: weightsKey) as? [Double],
-              savedWeights.count == 5 else {
+              savedWeights.count == featureCount + 1 else {
             status = .notTrained
             return
         }
@@ -108,29 +112,28 @@ actor PersonalizedReadinessModel {
         status = .training
 
         // Build design matrix X and target vector y
-        // X has shape (n, 5): [1, hrv, rhr, sleep, dayOfWeek] for each example
+        // X has shape (n, p): [1, hrv, rhr, sleep, dayOfWeek, morningEnergy, prevSteps, prevCalories]
         // y has shape (n,): label for each example
 
         let n = examples.count
-        let featureCount = 5  // bias + 4 features
+        let p = featureCount + 1  // +1 for bias
 
-        var X = [Double](repeating: 0, count: n * featureCount)
+        var X = [Double](repeating: 0, count: n * p)
         var y = [Double](repeating: 0, count: n)
 
         for (i, example) in examples.enumerated() {
             let features = example.features.toArray()
-            X[i * featureCount + 0] = 1.0  // bias term
-            X[i * featureCount + 1] = features[0]  // hrv
-            X[i * featureCount + 2] = features[1]  // rhr
-            X[i * featureCount + 3] = features[2]  // sleep
-            X[i * featureCount + 4] = features[3]  // dayOfWeek
+            X[i * p + 0] = 1.0  // bias term
+            for j in 0..<featureCount {
+                X[i * p + j + 1] = features[j]
+            }
             y[i] = example.label
         }
 
         // Solve using normal equations with ridge regularization:
         // w = (X^T X + lambdaI)^(-1) X^T y
 
-        guard let w = solveRidgeRegression(X: X, y: y, n: n, p: featureCount) else {
+        guard let w = solveRidgeRegression(X: X, y: y, n: n, p: p) else {
             status = .failed("Linear algebra error during training")
             return false
         }
@@ -150,9 +153,16 @@ actor PersonalizedReadinessModel {
 
     /// Predicts a readiness score from health metrics.
     ///
-    /// - Parameter metrics: The health metrics to base the prediction on
+    /// - Parameters:
+    ///   - metrics: The health metrics to base the prediction on
+    ///   - morningEnergy: User's morning energy rating (1-5), if available
+    ///   - previousDayMetrics: Previous day's health metrics (for lagging activity indicators)
     /// - Returns: Prediction result with score or failure reason
-    func predict(from metrics: HealthMetrics?) -> PredictionResult {
+    func predict(
+        from metrics: HealthMetrics?,
+        morningEnergy: Int? = nil,
+        previousDayMetrics: HealthMetrics? = nil
+    ) -> PredictionResult {
         guard let w = weights else {
             return .modelNotTrained
         }
@@ -160,7 +170,11 @@ actor PersonalizedReadinessModel {
         // Create feature extractor with current training count
         // This determines whether to use opinionated or linear normalization
         let featureExtractor = FeatureExtractor(trainingExampleCount: trainingExampleCount)
-        let features = featureExtractor.extractFeatures(from: metrics)
+        let features = featureExtractor.extractFeatures(
+            from: metrics,
+            morningEnergy: morningEnergy,
+            previousDayMetrics: previousDayMetrics
+        )
 
         // Check if we have enough feature data
         guard features.availableFeatureCount >= 2 else {
@@ -170,7 +184,7 @@ actor PersonalizedReadinessModel {
         // Compute prediction: w[0] + w[1]*x1 + w[2]*x2 + ...
         let x = features.toArray()
         var prediction = w[0]  // bias
-        for i in 0..<4 {
+        for i in 0..<featureCount {
             prediction += w[i + 1] * x[i]
         }
 
@@ -195,7 +209,7 @@ actor PersonalizedReadinessModel {
     ///
     /// Computes: w = (X^T X + lambdaI)^(-1) X^T y
     ///
-    /// For small matrices (5x5), we use Gaussian elimination with partial pivoting
+    /// For small matrices (8x8), we use Gaussian elimination with partial pivoting
     /// instead of LAPACK to avoid deprecation warnings and complexity.
     ///
     /// - Parameters:

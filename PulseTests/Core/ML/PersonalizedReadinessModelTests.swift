@@ -149,7 +149,13 @@ struct PersonalizedReadinessModelTests {
                 hrvNormalized: Double(i) / 10.0,
                 rhrNormalized: 0.5,
                 sleepNormalized: 0.5,
-                dayOfWeek: 0.5
+                dayOfWeek: 0.5,
+                morningEnergyNormalized: 0.5,
+                previousDayStepsNormalized: 0.5,
+                previousDayCaloriesNormalized: 0.5,
+                sleepNormalizedSquared: 0.25,
+                previousDayStepsNormalizedSquared: 0.25,
+                previousDayCaloriesNormalizedSquared: 0.25
             )
             // Use extreme labels to potentially cause extreme predictions
             let label = i < 5 ? 20.0 : 100.0
@@ -208,7 +214,13 @@ struct PersonalizedReadinessModelTests {
                 hrvNormalized: hrvValue,
                 rhrNormalized: 0.5,
                 sleepNormalized: 0.5,
-                dayOfWeek: 0.5
+                dayOfWeek: 0.5,
+                morningEnergyNormalized: 0.5,
+                previousDayStepsNormalized: 0.5,
+                previousDayCaloriesNormalized: 0.5,
+                sleepNormalizedSquared: 0.25,
+                previousDayStepsNormalizedSquared: 0.25,
+                previousDayCaloriesNormalizedSquared: 0.25
             )
             // Label correlates with HRV
             let label = 40.0 + hrvValue * 40.0 // 40 to 80
@@ -231,16 +243,84 @@ struct PersonalizedReadinessModelTests {
         }
     }
 
+    // MARK: - Polynomial Feature Learning
+
+    @Test func modelLearnsOptimalStepCount() async {
+        let model = PersonalizedReadinessModel()
+
+        // Simulate 30 days of a person whose sweet spot is ~8k steps (normalized 0.4).
+        // Other features vary randomly so the model learns to isolate the steps signal.
+        var examples: [TrainingExample] = []
+        for i in 0..<30 {
+            let stepsNorm = Double(i % 20) / 19.0 // 0 to 1 (0 to 20k steps)
+            let optimal = 0.4 // 8k steps
+
+            // Parabola: label peaks at 80 when steps = 8k, drops to ~67 at 0 and ~51 at 20k
+            let stepsEffect = -80.0 * pow(stepsNorm - optimal, 2)
+            // Other features contribute a baseline but with some noise
+            let hrvNorm = Double.random(in: 0.3...0.7)
+            let sleepNorm = Double.random(in: 0.4...0.7)
+            let label = 60.0 + stepsEffect + (hrvNorm - 0.5) * 10.0
+
+            let features = FeatureVector(
+                hrvNormalized: hrvNorm,
+                rhrNormalized: Double.random(in: 0.3...0.7),
+                sleepNormalized: sleepNorm,
+                dayOfWeek: Double(i % 7) / 6.0,
+                morningEnergyNormalized: Double.random(in: 0.3...0.7),
+                previousDayStepsNormalized: stepsNorm,
+                previousDayCaloriesNormalized: Double.random(in: 0.3...0.7),
+                sleepNormalizedSquared: sleepNorm * sleepNorm,
+                previousDayStepsNormalizedSquared: stepsNorm * stepsNorm,
+                previousDayCaloriesNormalizedSquared: Double.random(in: 0.09...0.49)
+            )
+            examples.append(TrainingExample(features: features, label: label, date: Date()))
+        }
+
+        let success = await model.train(on: examples)
+        #expect(success)
+
+        // Predict across a range of step counts, holding other metrics constant
+        let baseMetrics = HealthMetrics(date: Date(), restingHeartRate: 60, hrv: 60, sleepDuration: 7.5 * 3600)
+        let stepCounts = [0, 2_000, 4_000, 6_000, 8_000, 10_000, 14_000, 18_000, 20_000]
+
+        print("Step count vs readiness score:")
+        var scores: [Int: Int] = [:]
+        for steps in stepCounts {
+            let prevDay = HealthMetrics(date: Date(), steps: steps, activeCalories: 400)
+            let result = await model.predict(from: baseMetrics, previousDayMetrics: prevDay)
+            if case .success(let score) = result {
+                scores[steps] = score
+                print("  \(String(format: "%5d", steps)) steps → \(score)")
+            }
+        }
+
+        // 8k should beat both extremes
+        if let low = scores[0], let optimal = scores[8_000], let high = scores[20_000] {
+            #expect(optimal > low, "8k steps should score higher than 0 (got \(optimal) vs \(low))")
+            #expect(optimal > high, "8k steps should score higher than 20k (got \(optimal) vs \(high))")
+        }
+    }
+
     // MARK: - Helper Methods
 
     private func createTrainingExamples(count: Int) -> [TrainingExample] {
         var examples: [TrainingExample] = []
         for i in 0..<count {
+            let sleepVal = Double.random(in: 0.4...0.8)
+            let stepsVal = Double.random(in: 0.2...0.6)
+            let caloriesVal = Double.random(in: 0.2...0.6)
             let features = FeatureVector(
                 hrvNormalized: Double.random(in: 0.3...0.7),
                 rhrNormalized: Double.random(in: 0.3...0.7),
-                sleepNormalized: Double.random(in: 0.4...0.8),
-                dayOfWeek: Double(i % 7) / 6.0
+                sleepNormalized: sleepVal,
+                dayOfWeek: Double(i % 7) / 6.0,
+                morningEnergyNormalized: Double.random(in: 0.25...0.75),
+                previousDayStepsNormalized: stepsVal,
+                previousDayCaloriesNormalized: caloriesVal,
+                sleepNormalizedSquared: sleepVal * sleepVal,
+                previousDayStepsNormalizedSquared: stepsVal * stepsVal,
+                previousDayCaloriesNormalizedSquared: caloriesVal * caloriesVal
             )
             let label = Double.random(in: 50...80)
             let date = Calendar.current.date(byAdding: .day, value: -i, to: Date())!

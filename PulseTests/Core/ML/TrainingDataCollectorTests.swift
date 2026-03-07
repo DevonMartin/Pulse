@@ -207,14 +207,15 @@ struct TrainingDataCollectorTests {
             sleepDuration: nil
         )
 
+        // Day with empty health metrics still has dayOfWeek + morningEnergy = 2 features
         let days = [
             makeCompleteDay(date: yesterday, metrics: emptyMetrics)
         ]
 
         let examples = await collector.collectTrainingData(from: days)
 
-        // Should be filtered out due to insufficient features (only dayOfWeek = 1 feature)
-        #expect(examples.count == 0)
+        // Passes the >= 2 threshold (dayOfWeek + morningEnergy from check-in)
+        #expect(examples.count == 1)
     }
 
     // MARK: - Empty Input Tests
@@ -225,6 +226,59 @@ struct TrainingDataCollectorTests {
         let examples = await collector.collectTrainingData(from: [])
 
         #expect(examples.isEmpty)
+    }
+
+    @Test func extractsMorningEnergyAsFeature() async {
+        let collector = TrainingDataCollector()
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+
+        let days = [
+            makeCompleteDay(date: yesterday, firstEnergy: 4, secondEnergy: 3)
+        ]
+
+        let examples = await collector.collectTrainingData(from: days)
+
+        #expect(examples.count == 1)
+        // Morning energy 4 → (4-1)/4 = 0.75
+        #expect(examples[0].features.morningEnergyNormalized == 0.75)
+    }
+
+    @Test func extractsPreviousDayActivityMetrics() async {
+        let collector = TrainingDataCollector()
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today)!
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+
+        let prevMetrics = HealthMetrics(
+            date: twoDaysAgo,
+            restingHeartRate: 60,
+            hrv: 50,
+            sleepDuration: 7 * 3600,
+            steps: 10_000,
+            activeCalories: 500
+        )
+
+        let days = [
+            makeCompleteDay(date: twoDaysAgo, metrics: prevMetrics),
+            makeCompleteDay(date: yesterday)
+        ]
+
+        let examples = await collector.collectTrainingData(from: days)
+
+        #expect(examples.count == 2)
+        // First day has no previous day
+        #expect(examples[0].features.previousDayStepsNormalized == nil)
+        // Second day should use first day's activity
+        #expect(examples[1].features.previousDayStepsNormalized == 0.5) // 10000/20000
+        #expect(examples[1].features.previousDayCaloriesNormalized == 0.5) // 500/1000
+        // Squared features should be computed from linear values
+        #expect(examples[1].features.previousDayStepsNormalizedSquared == 0.25) // 0.5²
+        #expect(examples[1].features.previousDayCaloriesNormalizedSquared == 0.25) // 0.5²
     }
 
     @Test func onlyIncompleteDaysReturnsEmpty() async {

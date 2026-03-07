@@ -67,7 +67,7 @@ struct ReadinessServiceTests {
             sleepDuration: 8 * 3600
         )
 
-        let score = await service.calculate(from: metrics, energyLevel: 4)
+        let score = await service.calculate(from: metrics, energyLevel: 4, previousDayMetrics: nil)
 
         #expect(score != nil)
         #expect(score!.score >= 0)
@@ -77,7 +77,7 @@ struct ReadinessServiceTests {
     @Test func calculateReturnsNilWithNoData() async {
         let service = ReadinessService()
 
-        let score = await service.calculate(from: nil, energyLevel: nil)
+        let score = await service.calculate(from: nil, energyLevel: nil, previousDayMetrics: nil)
 
         #expect(score == nil)
     }
@@ -94,7 +94,7 @@ struct ReadinessServiceTests {
         // Without training, ML can't contribute
         await service.setDaysOfData(30) // Even at 100% ML weight
 
-        let score = await service.calculate(from: metrics, energyLevel: 4)
+        let score = await service.calculate(from: metrics, energyLevel: 4, previousDayMetrics: nil)
 
         // Should still get a score (from rules fallback)
         #expect(score != nil)
@@ -116,7 +116,7 @@ struct ReadinessServiceTests {
         // Day 0 - ML weight is 0
         await service.setDaysOfData(0)
 
-        let serviceScore = await service.calculate(from: metrics, energyLevel: 4)
+        let serviceScore = await service.calculate(from: metrics, energyLevel: 4, previousDayMetrics: nil)
         let rulesScore = rulesCalc.calculate(from: metrics, energyLevel: 4)
 
         // Scores should be identical since ML weight is 0
@@ -142,7 +142,7 @@ struct MockReadinessServiceTests {
     @Test func mockReturnsDefaultScore() async {
         let mock = MockReadinessService()
 
-        let score = await mock.calculate(from: nil, energyLevel: nil)
+        let score = await mock.calculate(from: nil, energyLevel: nil, previousDayMetrics: nil)
 
         #expect(score != nil)
         #expect(score?.score == 75)
@@ -162,7 +162,7 @@ struct MockReadinessServiceTests {
         )
         await mock.setMockScore(customScore)
 
-        let score = await mock.calculate(from: nil, energyLevel: nil)
+        let score = await mock.calculate(from: nil, energyLevel: nil, previousDayMetrics: nil)
 
         #expect(score?.score == 90)
     }
