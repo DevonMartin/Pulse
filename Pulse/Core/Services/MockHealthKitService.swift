@@ -35,8 +35,8 @@ final class MockHealthKitService: HealthKitServiceProtocol {
     /// Tracks whether requestAuthorization() was called (useful for tests)
     private(set) var requestAuthorizationCallCount = 0
 
-    /// Tracks the dates passed to fetchMetrics() (useful for tests)
-    private(set) var fetchMetricsDates: [Date] = []
+    /// Tracks the date ranges passed to fetchMetrics() (useful for tests)
+    private(set) var fetchMetricsRanges: [(start: Date, end: Date)] = []
 
     /// Cache of generated metrics by date to prevent re-randomizing on refresh
     private var cachedMetrics: [String: HealthMetrics] = [:]
@@ -67,8 +67,8 @@ final class MockHealthKitService: HealthKitServiceProtocol {
         mockAuthorizationStatus = .authorized
     }
 
-    func fetchMetrics(for date: Date) async throws -> HealthMetrics {
-        fetchMetricsDates.append(date)
+    func fetchMetrics(from start: Date, to end: Date) async throws -> HealthMetrics {
+        fetchMetricsRanges.append((start: start, end: end))
         try await Task.sleep(for: .seconds(simulatedDelay))
 
         // Return custom mock data if set
@@ -77,13 +77,13 @@ final class MockHealthKitService: HealthKitServiceProtocol {
         }
 
         // Check cache first to prevent re-randomizing on refresh
-        let cacheKey = Self.cacheDateFormatter.string(from: date)
+        let cacheKey = Self.cacheDateFormatter.string(from: start)
         if let cached = cachedMetrics[cacheKey] {
             return cached
         }
 
         // Generate and cache realistic sample data for development
-        let metrics = Self.sampleMetrics(for: date)
+        let metrics = Self.sampleMetrics(for: start)
         cachedMetrics[cacheKey] = metrics
         return metrics
     }

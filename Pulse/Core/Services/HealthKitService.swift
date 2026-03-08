@@ -52,9 +52,9 @@ protocol HealthKitServiceProtocol {
     /// checking if data comes back empty.
     func requestAuthorization() async throws
 
-    /// Fetch health metrics for a specific date.
+    /// Fetch health metrics for a specific date range.
     /// Returns a HealthMetrics struct with available data (nil for missing metrics).
-    func fetchMetrics(for date: Date) async throws -> HealthMetrics
+    func fetchMetrics(from start: Date, to end: Date) async throws -> HealthMetrics
 }
 
 // MARK: - Implementation
@@ -151,23 +151,18 @@ final class HealthKitService: HealthKitServiceProtocol {
         }
     }
 
-    func fetchMetrics(for date: Date) async throws -> HealthMetrics {
-        // Create date range for the requested date (start of day to end of day)
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: date)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-
+    func fetchMetrics(from start: Date, to end: Date) async throws -> HealthMetrics {
         // Fetch all metrics concurrently.
         // Each fetch returns nil if no data exists (rather than throwing),
         // so a fresh device with no health history still works.
-        async let restingHR = fetchRestingHeartRate(start: startOfDay, end: endOfDay)
-        async let hrv = fetchHRV(start: startOfDay, end: endOfDay)
-        async let sleep = fetchSleepDuration(start: startOfDay, end: endOfDay)
-        async let steps = fetchSteps(start: startOfDay, end: endOfDay)
-        async let calories = fetchActiveCalories(start: startOfDay, end: endOfDay)
+        async let restingHR = fetchRestingHeartRate(start: start, end: end)
+        async let hrv = fetchHRV(start: start, end: end)
+        async let sleep = fetchSleepDuration(start: start, end: end)
+        async let steps = fetchSteps(start: start, end: end)
+        async let calories = fetchActiveCalories(start: start, end: end)
 
         return HealthMetrics(
-            date: date,
+            date: start,
             restingHeartRate: await restingHR,
             hrv: await hrv,
             sleepDuration: await sleep,

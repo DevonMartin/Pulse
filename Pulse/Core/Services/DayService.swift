@@ -55,8 +55,10 @@ actor DayService {
         // Load existing day if any
         var currentDay = try await dayRepository.getCurrentDayIfExists()
 
-        // Fetch fresh metrics from HealthKit (nil if no data yet — fresh device is fine)
-        let freshMetrics = try? await healthKitService.fetchMetrics(for: Date())
+        // Fetch fresh metrics from HealthKit using user-day boundaries (not calendar midnight)
+        let userDayStart = timeWindowProvider.currentUserDayStart
+        let userDayEnd = Calendar.current.date(byAdding: .day, value: 1, to: userDayStart)!
+        let freshMetrics = try? await healthKitService.fetchMetrics(from: userDayStart, to: userDayEnd)
 
         var metricsWereUpdated = false
         var scoreWasRecalculated = false
