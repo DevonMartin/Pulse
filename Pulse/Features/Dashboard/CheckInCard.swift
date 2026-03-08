@@ -24,6 +24,8 @@ struct CheckInCard: View {
     let isLoading: Bool
     let isMorningWindow: Bool
     let isEveningWindow: Bool
+    let morningWindowOpensHour: Int
+    let eveningWindowOpensHour: Int
     let onMorningCheckInTapped: () -> Void
     let onEveningCheckInTapped: () -> Void
 
@@ -150,7 +152,7 @@ struct CheckInCard: View {
                     .font(.headline)
                     .foregroundStyle(.green)
 
-                Text("Come back later for your second check-in")
+                Text("Come back after \(formattedTime(hour: eveningWindowOpensHour)) for your next check-in")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -193,7 +195,7 @@ struct CheckInCard: View {
                 .font(.headline)
                 .foregroundStyle(.green)
 
-            Text("See you next time!")
+            Text("Come back after \(formattedTime(hour: morningWindowOpensHour)) for your next check-in")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -229,6 +231,17 @@ struct CheckInCard: View {
             }
         }
         .padding(.vertical, 8)
+    }
+
+    // MARK: - Helpers
+
+    /// Formats an hour (0-23) into a localized time string (e.g., "4 PM").
+    private func formattedTime(hour: Int) -> String {
+        let calendar = Calendar.current
+        let date = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: Date())!
+        let formatter = DateFormatter()
+        formatter.dateFormat = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)
+        return formatter.string(from: date)
     }
 
     // MARK: - Styling
@@ -284,6 +297,8 @@ private struct EnergyBadge: View {
         isLoading: false,
         isMorningWindow: true,
         isEveningWindow: false,
+        morningWindowOpensHour: TimeWindows.morningWindowOpensHour,
+        eveningWindowOpensHour: TimeWindows.eveningWindowOpensHour,
         onMorningCheckInTapped: {},
         onEveningCheckInTapped: {}
     )
@@ -299,6 +314,8 @@ private struct EnergyBadge: View {
         isLoading: false,
         isMorningWindow: false,
         isEveningWindow: false,
+        morningWindowOpensHour: TimeWindows.morningWindowOpensHour,
+        eveningWindowOpensHour: TimeWindows.eveningWindowOpensHour,
         onMorningCheckInTapped: {},
         onEveningCheckInTapped: {}
     )
@@ -314,6 +331,8 @@ private struct EnergyBadge: View {
         isLoading: false,
         isMorningWindow: false,
         isEveningWindow: true,
+        morningWindowOpensHour: TimeWindows.morningWindowOpensHour,
+        eveningWindowOpensHour: TimeWindows.eveningWindowOpensHour,
         onMorningCheckInTapped: {},
         onEveningCheckInTapped: {}
     )
@@ -330,6 +349,8 @@ private struct EnergyBadge: View {
         isLoading: false,
         isMorningWindow: false,
         isEveningWindow: true,
+        morningWindowOpensHour: TimeWindows.morningWindowOpensHour,
+        eveningWindowOpensHour: TimeWindows.eveningWindowOpensHour,
         onMorningCheckInTapped: {},
         onEveningCheckInTapped: {}
     )

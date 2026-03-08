@@ -28,6 +28,12 @@ struct DashboardView: View {
     @State private var mlExampleCount: Int = 0
     @State private var mlWeight: Double = 0
 
+    // Tracks check-in schedule changes from Settings (triggers re-render via @AppStorage)
+    @AppStorage(TimeWindows.Keys.morningCheckInHour, store: UserDefaults(suiteName: TimeWindows.appGroupID))
+    private var morningHour: Int = 8
+    @AppStorage(TimeWindows.Keys.eveningCheckInHour, store: UserDefaults(suiteName: TimeWindows.appGroupID))
+    private var eveningHour: Int = 19
+
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
@@ -42,6 +48,8 @@ struct DashboardView: View {
                         isLoading: isLoading,
                         isMorningWindow: TimeWindows.isMorningWindow,
                         isEveningWindow: TimeWindows.isEveningWindow,
+						morningWindowOpensHour: max(0, morningHour - TimeWindows.windowBufferHours),
+						eveningWindowOpensHour: (eveningHour - TimeWindows.windowBufferHours + 24) % 24,
                         onMorningCheckInTapped: { showingMorningCheckIn = true },
                         onEveningCheckInTapped: { showingEveningCheckIn = true }
                     )

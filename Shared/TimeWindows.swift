@@ -80,7 +80,7 @@ enum TimeWindows: Sendable {
     // MARK: - Window Buffer
 
     /// Hours before the scheduled reminder that the check-in window opens.
-    nonisolated private static let windowBufferHours = 3
+    nonisolated static let windowBufferHours = 3
 
     /// The hour when the morning check-in window opens (3 hours before morning reminder).
     /// Clamped at midnight for AM morning times to avoid wrapping into PM.
