@@ -205,10 +205,10 @@ private struct BreakdownRow: View {
                 }
                 .frame(height: 8)
 
-                Text("\(score)")
+                Text("\(score)%")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .frame(width: 24, alignment: .trailing)
+                    .frame(width: 30, alignment: .trailing)
                     .contentTransition(.numericText())
             } else {
                 Text("--")

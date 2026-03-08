@@ -651,6 +651,11 @@ struct OnboardingView: View {
                 }
             }
             .frame(height: 8)
+
+            Text("\(Int(value * 100))%")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(width: 30, alignment: .trailing)
         }
     }
 
