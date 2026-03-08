@@ -83,7 +83,7 @@ struct OnboardingView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
-                Text("Track how you feel alongside what your body is doing — and start to see what actually affects your energy, recovery, and performance.")
+                Text("Track how you feel alongside what your body is doing, and start to see what actually affects your energy, recovery, and performance.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -99,48 +99,51 @@ struct OnboardingView: View {
     // MARK: - Page 2: How It Works
 
     private var howItWorksPage: some View {
-        VStack(spacing: 28) {
-            VStack(spacing: 8) {
-                Text("How It Works")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+        VStack(spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 28) {
+                    VStack(spacing: 8) {
+                        Text("How It Works")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
 
-                Text("Two quick check-ins each day, combined with your health data")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                        Text("Two quick check-ins each day, combined with your health data")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                    .padding(.top, 60)
+
+                    VStack(spacing: 16) {
+                        stepRow(
+                            number: "1",
+                            icon: "sun.horizon.fill",
+                            color: .orange,
+                            title: "Morning Check-In",
+                            description: "Rate your energy level when you start your day. Pulse combines this with last night's sleep, heart rate, and HRV to calculate your readiness."
+                        )
+
+                        stepRow(
+                            number: "2",
+                            icon: "moon.stars.fill",
+                            color: .purple,
+                            title: "Evening Check-In",
+                            description: "Reflect on how your energy held up. This is the key signal that teaches Pulse what a good or tough day looks like for you."
+                        )
+
+                        stepRow(
+                            number: "3",
+                            icon: "chart.line.uptrend.xyaxis",
+                            color: .mint,
+                            title: "Discover Patterns",
+                            description: "Over time, you'll see which metrics actually predict how you perform, not just how you feel in the moment."
+                        )
+                    }
+                    .padding(.horizontal)
+                }
             }
-            .padding(.top, 60)
-
-            VStack(spacing: 16) {
-                stepRow(
-                    number: "1",
-                    icon: "sun.horizon.fill",
-                    color: .orange,
-                    title: "Morning Check-In",
-                    description: "Rate your energy level when you start your day. Pulse combines this with last night's sleep, heart rate, and HRV to calculate your readiness."
-                )
-
-                stepRow(
-                    number: "2",
-                    icon: "moon.stars.fill",
-                    color: .purple,
-                    title: "Evening Check-In",
-                    description: "Reflect on how your energy held up. This is the key signal that teaches Pulse what a good or tough day looks like for you."
-                )
-
-                stepRow(
-                    number: "3",
-                    icon: "chart.line.uptrend.xyaxis",
-                    color: .mint,
-                    title: "Discover Patterns",
-                    description: "Over time, you'll see which metrics actually predict how you perform — not just how you feel in the moment."
-                )
-            }
-            .padding(.horizontal)
-
-            Spacer()
+            .scrollBounceBehavior(.basedOnSize)
 
             nextButton("Continue", page: 2)
         }
@@ -149,49 +152,52 @@ struct OnboardingView: View {
     // MARK: - Page 3: Readiness Score
 
     private var readinessScorePage: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 8) {
-                Text("Your Readiness Score")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+        VStack(spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    VStack(spacing: 8) {
+                        Text("Your Readiness Score")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
 
-                Text("A daily snapshot of how prepared your body is, based on real data and how you actually feel")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                        Text("A daily snapshot of how prepared your body is, based on real data and how you actually feel")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                    .padding(.top, 60)
+
+                    // Mock score display
+                    mockScoreCard
+
+                    // Component legend
+                    VStack(spacing: 10) {
+                        componentRow(
+                            color: .red,
+                            title: "Resting HR",
+                            detail: "Lower at rest means better recovery"
+                        )
+                        componentRow(
+                            color: .pink,
+                            title: "HRV",
+                            detail: "How recovered your nervous system is"
+                        )
+                        componentRow(
+                            color: .indigo,
+                            title: "Sleep",
+                            detail: "Duration and quality of last night's rest"
+                        )
+                        componentRow(
+                            color: .orange,
+                            title: "Energy",
+                            detail: "Your own rating — because you know your body"
+                        )
+                    }
+                    .padding(.horizontal, 24)
+                }
             }
-            .padding(.top, 60)
-
-            // Mock score display
-            mockScoreCard
-
-            // Component legend
-			VStack(spacing: 10) {
-				componentRow(
-					color: .red,
-					title: "Resting HR",
-					detail: "Lower at rest means better recovery"
-				)
-				componentRow(
-					color: .pink,
-					title: "HRV",
-					detail: "How recovered your nervous system is"
-				)
-				componentRow(
-					color: .indigo,
-					title: "Sleep",
-					detail: "Duration and quality of last night's rest"
-				)
-				componentRow(
-					color: .orange,
-					title: "Energy",
-					detail: "Your own rating — because you know your body"
-				)
-			}
-            .padding(.horizontal, 24)
-
-            Spacer()
+            .scrollBounceBehavior(.basedOnSize)
 
             nextButton("Continue", page: 3)
         }
@@ -200,107 +206,117 @@ struct OnboardingView: View {
     // MARK: - Page 4: Apple Watch
 
     private var watchPage: some View {
-        VStack(spacing: 28) {
-            VStack(spacing: 8) {
-                Text("Wear Your Watch")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+        VStack(spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 28) {
+                    VStack(spacing: 8) {
+                        Text("Wear Your Watch")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
 
-                Text("Pulse relies on data from Apple Watch to build your readiness score")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 32)
+                        Text("Pulse relies on data from Apple Watch to build your readiness score")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 32)
+                    }
+                    .padding(.top, 60)
+
+                    Image(systemName: "applewatch.and.arrow.forward")
+                        .font(.system(size: 64))
+                        .foregroundStyle(.orange)
+                        .padding(.top, 8)
+
+                    VStack(spacing: 16) {
+                        watchDataRow(
+                            icon: "heart.fill",
+                            color: .red,
+                            title: "Heart Rate & HRV",
+                            description: "Measured overnight and throughout the day by your Watch's sensors"
+                        )
+
+                        watchDataRow(
+                            icon: "bed.double.fill",
+                            color: .indigo,
+                            title: "Sleep Tracking",
+                            description: "Wear your Watch to bed so Pulse can measure how long and how well you slept"
+                        )
+
+                        watchDataRow(
+                            icon: "figure.walk",
+                            color: .green,
+                            title: "Activity & Workouts",
+                            description: "Your iPhone tracks steps and calories, but a Watch adds workout detection and more accurate data"
+                        )
+                    }
+                    .padding(.horizontal)
+                }
             }
-            .padding(.top, 60)
+            .scrollBounceBehavior(.basedOnSize)
 
-            Image(systemName: "applewatch.and.arrow.forward")
-                .font(.system(size: 64))
-                .foregroundStyle(.orange)
-                .padding(.top, 8)
-
-            VStack(spacing: 16) {
-                watchDataRow(
-                    icon: "heart.fill",
-                    color: .red,
-                    title: "Heart Rate & HRV",
-                    description: "Measured overnight and throughout the day by your Watch's sensors"
-                )
-
-                watchDataRow(
-                    icon: "bed.double.fill",
-                    color: .indigo,
-                    title: "Sleep Tracking",
-                    description: "Wear your Watch to bed so Pulse can measure how long and how well you slept"
-                )
-
-                watchDataRow(
-                    icon: "figure.walk",
-                    color: .green,
-                    title: "Activity & Workouts",
-                    description: "Your iPhone tracks steps and calories, but a Watch adds workout detection and more accurate data"
-                )
-            }
-            .padding(.horizontal)
-
-            Text("Without a Watch, Pulse won't have heart rate, HRV, or sleep data — your score will rely mostly on your energy check-ins.")
+            Text("Without a Watch, Pulse won't have heart rate, HRV, or sleep data; your score will rely mostly on your energy check-ins.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 32)
-
-            Spacer()
+                .padding(.top, 12)
 
             nextButton("Continue", page: 4)
+                .padding(.top, 12)
         }
     }
 
     // MARK: - Page 5: Personalization
 
     private var personalizationPage: some View {
-        VStack(spacing: 28) {
-            VStack(spacing: 8) {
-                Text("Gets Smarter Over Time")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+        VStack(spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 28) {
+                    VStack(spacing: 8) {
+                        Text("Gets Smarter Over Time")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
 
-                Text("Pulse learns what matters most for you specifically")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 32)
+                        Text("Pulse learns what matters most for you specifically")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 32)
+                    }
+                    .padding(.top, 60)
+
+                    VStack(spacing: 20) {
+                        personalizationStage(
+                            icon: "brain",
+                            color: .orange,
+                            title: "First Few Days",
+                            description: "Scores use proven general patterns: HRV, resting heart rate, sleep, and your energy ratings.",
+                            progress: 0.33
+                        )
+
+                        personalizationStage(
+                            icon: "brain.head.profile",
+                            color: .blue,
+                            title: "Days 3–30",
+                            description: "After 3 days of check-ins, an on-device model starts learning your personal patterns and gradually shapes your score.",
+                            progress: 0.66
+                        )
+
+                        personalizationStage(
+                            icon: "brain.fill",
+                            color: .green,
+                            title: "30+ Days",
+                            description: "Your score is fully personalized. It reflects what actually predicts a good day for you, not just population averages.",
+                            progress: 1.0
+                        )
+                    }
+                    .padding(.horizontal)
+                }
             }
-            .padding(.top, 60)
-
-            VStack(spacing: 20) {
-                personalizationStage(
-                    icon: "brain",
-                    color: .orange,
-                    title: "First Few Days",
-                    description: "Scores use proven general patterns — HRV, resting heart rate, sleep, and your energy ratings.",
-                    progress: 0.1
-                )
-
-                personalizationStage(
-                    icon: "brain.head.profile",
-                    color: .blue,
-                    title: "Days 3–30",
-                    description: "After 3 days of check-ins, an on-device model starts learning your personal patterns and gradually shapes your score.",
-                    progress: 0.5
-                )
-
-                personalizationStage(
-                    icon: "brain.fill",
-                    color: .green,
-                    title: "30+ Days",
-                    description: "Your score is fully personalized. It reflects what actually predicts a good day for you — not just population averages.",
-                    progress: 1.0
-                )
-            }
-            .padding(.horizontal)
+            .scrollBounceBehavior(.basedOnSize)
 
             Text("All learning happens on your device. Your data never leaves your phone.")
                 .font(.caption)
@@ -308,102 +324,105 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 32)
-
-            Spacer()
+                .padding(.top, 12)
 
             nextButton("Continue", page: 5)
+                .padding(.top, 12)
         }
     }
 
     // MARK: - Page 6: Set Your Schedule
 
     private var schedulePage: some View {
-        VStack(spacing: 28) {
-            VStack(spacing: 8) {
-                Text("Set Your Schedule")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+        VStack(spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 28) {
+                    VStack(spacing: 8) {
+                        Text("Set Your Schedule")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
 
-                Text("Choose when you'd like to check in each day")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 32)
-            }
-            .padding(.top, 60)
-
-            VStack(spacing: 20) {
-                // Morning time picker
-                HStack {
-                    ZStack {
-                        Circle()
-                            .fill(Color.orange.opacity(0.15))
-                            .frame(width: 44, height: 44)
-
-                        Image(systemName: "sun.horizon.fill")
-                            .font(.title3)
-                            .foregroundStyle(.orange)
+                        Text("Choose when you'd like to check in each day")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 32)
                     }
+                    .padding(.top, 60)
 
-                    DatePicker(
-                        "Morning",
-                        selection: $morningTime,
-                        displayedComponents: .hourAndMinute
-                    )
-                    .font(.headline)
-                }
-                .padding()
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                    VStack(spacing: 20) {
+                        // Morning time picker
+                        HStack {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.orange.opacity(0.15))
+                                    .frame(width: 44, height: 44)
 
-                // Evening time picker
-                HStack {
-                    ZStack {
-                        Circle()
-                            .fill(Color.purple.opacity(0.15))
-                            .frame(width: 44, height: 44)
+                                Image(systemName: "sun.horizon.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(.orange)
+                            }
 
-                        Image(systemName: "moon.stars.fill")
-                            .font(.title3)
-                            .foregroundStyle(.purple)
+                            DatePicker(
+                                "Morning",
+                                selection: $morningTime,
+                                displayedComponents: .hourAndMinute
+                            )
+                            .font(.headline)
+                        }
+                        .padding()
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                        // Evening time picker
+                        HStack {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.purple.opacity(0.15))
+                                    .frame(width: 44, height: 44)
+
+                                Image(systemName: "moon.stars.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(.purple)
+                            }
+
+                            DatePicker(
+                                "Evening",
+                                selection: $eveningTime,
+                                displayedComponents: .hourAndMinute
+                            )
+                            .font(.headline)
+                        }
+                        .padding()
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
                     }
+                    .padding(.horizontal)
 
-                    DatePicker(
-                        "Evening",
-                        selection: $eveningTime,
-                        displayedComponents: .hourAndMinute
-                    )
-                    .font(.headline)
+                    // Reminder opt-in
+                    Toggle(isOn: $remindersEnabled) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "bell.fill")
+                                .foregroundStyle(.orange)
+                            Text("Remind me at these times")
+                                .font(.subheadline)
+                        }
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal)
+
+                    Text("\"Morning\" is whenever your day starts and \"Evening\" is when you're winding down. It doesn't have to be AM and PM. You can change these anytime in Settings.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 32)
                 }
-                .padding()
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
-            .padding(.horizontal)
-
-            // Reminder opt-in
-            Toggle(isOn: $remindersEnabled) {
-                HStack(spacing: 10) {
-                    Image(systemName: "bell.fill")
-                        .foregroundStyle(.orange)
-                    Text("Remind me at these times")
-                        .font(.subheadline)
-                }
-            }
-            .padding()
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal)
-
-            Text("\"Morning\" is whenever your day starts and \"Evening\" is when you're winding down — it doesn't have to be AM and PM. You can change these anytime in Settings.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 32)
-
-            Spacer()
+            .scrollBounceBehavior(.basedOnSize)
 
             Button {
                 saveScheduleAndContinue()
@@ -472,7 +491,7 @@ struct OnboardingView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
-                Text("Pulse reads health data from your Apple Watch or iPhone to power your readiness score. Nothing is shared or sent anywhere — all data stays on your device.")
+                Text("Pulse reads health data from your Apple Watch or iPhone to power your readiness score. Nothing is shared or sent anywhere; all data stays on your device.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

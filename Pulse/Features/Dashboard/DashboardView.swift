@@ -30,7 +30,7 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     // Readiness score card
 					// (always shown - uses current day or placeholder)
