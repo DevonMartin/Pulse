@@ -195,17 +195,26 @@ struct SettingsView: View {
         let eh = calendar.component(.hour, from: eveningTime)
         let em = calendar.component(.minute, from: eveningTime)
 
-        // TODO: Switching between normal and cross-day schedules (e.g., 8 AM → 6 PM)
-        // changes userDayStartHour, which shifts the day boundary. Any check-ins
-        // already recorded for the current day would be orphaned because
-        // currentUserDayStart no longer matches the existing Day's startDate.
-        // Consider migrating the current Day record or warning the user.
+        // Capture the current day boundary before saving new times
+        let oldUserDayStart = TimeWindows.currentUserDayStart
+
         TimeWindows.saveCheckInTimes(
             morningHour: mh, morningMinute: mm,
             eveningHour: eh, eveningMinute: em
         )
 
+        // Check if the day boundary shifted (e.g., switching between
+        // normal and cross-day schedules). If so, migrate the existing
+        // Day record to the new startDate to prevent orphaned duplicates.
+        let newUserDayStart = TimeWindows.currentUserDayStart
+
         Task {
+            if oldUserDayStart != newUserDayStart {
+                try? await container.dayRepository.migrateDayStartDate(
+                    from: oldUserDayStart,
+                    to: newUserDayStart
+                )
+            }
             await container.notificationService.scheduleCheckInReminders()
         }
     }

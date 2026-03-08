@@ -42,6 +42,11 @@ protocol DayRepositoryProtocol: Sendable {
 
     /// Gets the count of completed days (for personalization progress).
     func getCompletedDaysCount() async throws -> Int
+
+    /// Migrates the current Day's startDate when a schedule change shifts
+    /// the user day boundary. Finds the Day with `oldStart` and updates
+    /// its startDate to `newStart`, preventing orphaned/duplicate records.
+    func migrateDayStartDate(from oldStart: Date, to newStart: Date) async throws
 }
 
 // MARK: - Implementation
@@ -169,6 +174,21 @@ actor DayRepository: DayRepositoryProtocol {
         let results = try modelContext.fetch(descriptor)
         return results.count
     }
+
+    func migrateDayStartDate(from oldStart: Date, to newStart: Date) async throws {
+        let predicate = #Predicate<DayEntity> { entity in
+            entity.startDate == oldStart
+        }
+
+        var descriptor = FetchDescriptor<DayEntity>(predicate: predicate)
+        descriptor.fetchLimit = 1
+
+        let results = try modelContext.fetch(descriptor)
+        if let entity = results.first {
+            entity.startDate = newStart
+            try modelContext.save()
+        }
+    }
 }
 
 // MARK: - Mock Implementation
@@ -294,6 +314,22 @@ actor MockDayRepository: DayRepositoryProtocol {
         if let error = shouldThrowError { throw error }
 
         return days.filter { $0.isComplete }.count
+    }
+
+    func migrateDayStartDate(from oldStart: Date, to newStart: Date) async throws {
+        if let error = shouldThrowError { throw error }
+
+        if let index = days.firstIndex(where: { $0.startDate == oldStart }) {
+            let old = days[index]
+            days[index] = Day(
+                id: old.id,
+                startDate: newStart,
+                firstCheckIn: old.firstCheckIn,
+                secondCheckIn: old.secondCheckIn,
+                healthMetrics: old.healthMetrics,
+                readinessScore: old.readinessScore
+            )
+        }
     }
 
     // MARK: - Test Helpers
