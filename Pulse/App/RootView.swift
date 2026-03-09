@@ -18,6 +18,7 @@ struct RootView: View {
 	@State private var showSplash: Bool
 	@State private var showOnboardingIcon = false
 	@State private var splashAnimationDone = false
+	@State private var onboardingFading = false
 	@State private var showDashboardSplash: Bool
 	@State private var dashboardSplashExpanding = false
 	@State private var skipDashboardSplashAnimation = false
@@ -55,6 +56,7 @@ struct RootView: View {
 				.accessibilityHidden(showOnboarding)
 
 			if showOnboarding {
+				Group {
 				// Solid base — always covers the dashboard during onboarding
 				Color(.systemBackground)
 					.ignoresSafeArea()
@@ -81,8 +83,11 @@ struct RootView: View {
 					splashActive: showSplash,
 					showIcon: showOnboardingIcon
 				) {
-					hasCompletedOnboarding = true
-					withAnimation(.easeInOut) { showOnboarding = false }
+					// hasCompletedOnboarding = true
+					withAnimation(.easeInOut) { onboardingFading = true }
+					DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+						showOnboarding = false
+					}
 				}
 
 				// Floating icon — follows the onboarding anchor via matchedGeometry.
@@ -113,6 +118,9 @@ struct RootView: View {
 				.ignoresSafeArea()
 				.opacity(splashAnimationDone ? 0 : 1)
 				.allowsHitTesting(false)
+				}
+				.opacity(onboardingFading ? 0 : 1)
+				.zIndex(1)
 			}
 
 			// Dashboard splash — expanding icon transition when launching

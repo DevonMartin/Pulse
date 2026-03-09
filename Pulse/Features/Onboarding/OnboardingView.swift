@@ -501,14 +501,17 @@ struct OnboardingView: View {
 
             if showNoDataWarning {
                 noDataWarningContent
+                    .transition(.push(from: .trailing))
             } else {
                 permissionRequestContent
+                    .transition(.asymmetric(insertion: .identity, removal: .move(edge: .leading)))
             }
 
             Spacer()
 
             if showNoDataWarning {
                 noDataWarningButtons
+                    .transition(.push(from: .trailing))
             } else {
                 Button {
                     isRequestingAuth = true
@@ -529,6 +532,7 @@ struct OnboardingView: View {
                 .disabled(isRequestingAuth)
                 .padding(.horizontal)
                 .padding(.bottom, 60)
+                .transition(.asymmetric(insertion: .identity, removal: .move(edge: .leading)))
             }
         }
     }
@@ -905,8 +909,34 @@ struct OnboardingView: View {
     private func requestHealthKitAccess() async {
         do {
             try await container.healthKitService.requestAuthorization()
-            await MainActor.run { completeOnboarding() }
+
+            // HealthKit doesn't throw on denial — it silently grants no access.
+            // Attempt a data fetch to check if we actually got permission.
+            let now = Date()
+            let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now)!
+            let metrics = try await container.healthKitService.fetchMetrics(from: weekAgo, to: now)
+
+            let hasAnyData = metrics.restingHeartRate != nil
+                || metrics.hrv != nil
+                || metrics.sleepDuration != nil
+                || metrics.steps != nil
+                || metrics.activeCalories != nil
+
+            if hasAnyData {
+                await MainActor.run { completeOnboarding() }
+            } else {
+                // Brief delay so the HealthKit sheet fully dismisses
+                // before sliding to the warning page.
+                try? await Task.sleep(for: .milliseconds(400))
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showNoDataWarning = true
+                    }
+                    isRequestingAuth = false
+                }
+            }
         } catch {
+            try? await Task.sleep(for: .milliseconds(400))
             withAnimation(.easeInOut(duration: 0.3)) {
                 showNoDataWarning = true
             }
@@ -916,7 +946,12 @@ struct OnboardingView: View {
 
     private func completeOnboarding() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        onComplete()
+        // Brief delay so the HealthKit authorization sheet fully
+        // dismisses before the onboarding-to-dashboard fade begins.
+        Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            onComplete()
+        }
     }
 }
 
