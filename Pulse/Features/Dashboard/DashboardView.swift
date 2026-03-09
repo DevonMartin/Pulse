@@ -123,6 +123,12 @@ struct DashboardView: View {
             .onReceive(NotificationCenter.default.publisher(for: .checkInCompleted)) { _ in
                 Task { await loadData() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .onboardingCompleted)) { _ in
+                Task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    isTitleFocused = true
+                }
+            }
         }
     }
 

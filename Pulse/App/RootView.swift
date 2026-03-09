@@ -87,6 +87,7 @@ struct RootView: View {
 					withAnimation(.easeInOut) { onboardingFading = true }
 					DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
 						showOnboarding = false
+						NotificationCenter.default.post(name: .onboardingCompleted, object: nil)
 					}
 				}
 

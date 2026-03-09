@@ -587,8 +587,10 @@ struct OnboardingView: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("No Health Data Found")
+            .accessibilityFocused($accessibilityFocus, equals: 7)
 
             Text("If you declined access, open the Health app, tap your profile picture, then Privacy \u{2192} Apps \u{2192} Pulse to enable access. If you don't have health data yet, Pulse will start tracking when data becomes available.")
+                .accessibilityLabel("If you declined access, open the Health app, tap your profile picture, then Privacy, Apps, Pulse to enable access. If you don't have health data yet, Pulse will start tracking when data becomes available.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -934,13 +936,19 @@ struct OnboardingView: View {
                     }
                     isRequestingAuth = false
                 }
+                try? await Task.sleep(for: .milliseconds(500))
+                await MainActor.run { accessibilityFocus = 7 }
             }
         } catch {
             try? await Task.sleep(for: .milliseconds(400))
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showNoDataWarning = true
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showNoDataWarning = true
+                }
+                isRequestingAuth = false
             }
-            isRequestingAuth = false
+            try? await Task.sleep(for: .milliseconds(500))
+            await MainActor.run { accessibilityFocus = 7 }
         }
     }
 

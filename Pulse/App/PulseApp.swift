@@ -23,6 +23,7 @@ extension Notification.Name {
     /// Posted when a check-in completes (from deep link or widget).
     /// DashboardView observes this to refresh its data.
     static let checkInCompleted = Notification.Name("checkInCompleted")
+    static let onboardingCompleted = Notification.Name("onboardingCompleted")
 }
 
 // MARK: - App
