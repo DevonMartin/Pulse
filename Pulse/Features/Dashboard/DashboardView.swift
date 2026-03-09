@@ -27,6 +27,7 @@ struct DashboardView: View {
     // ML status
     @State private var mlExampleCount: Int = 0
     @State private var mlWeight: Double = 0
+    @AccessibilityFocusState private var isTitleFocused: Bool
 
     // Tracks check-in schedule changes from Settings (triggers re-render via @AppStorage)
     @AppStorage(TimeWindows.Keys.morningCheckInHour, store: UserDefaults(suiteName: TimeWindows.appGroupID))
@@ -38,6 +39,13 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
+                    Text("Dashboard")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityFocused($isTitleFocused)
+
                     // Readiness score card
 					// (always shown - uses current day or placeholder)
                     ReadinessScoreCard(day: currentDay ?? Day(startDate: Date()))
@@ -73,13 +81,14 @@ struct DashboardView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Dashboard")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         SettingsView()
                     } label: {
                         Image(systemName: "gearshape")
+                            .accessibilityLabel("Settings")
                     }
                 }
             }
@@ -104,6 +113,12 @@ struct DashboardView: View {
             }
             .task {
                 await initializeAndLoadData()
+            }
+            .onAppear {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    isTitleFocused = true
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .checkInCompleted)) { _ in
                 Task { await loadData() }

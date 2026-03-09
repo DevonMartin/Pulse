@@ -37,10 +37,20 @@ struct HistoryView: View {
     @State private var selectedTimeRange: TimeRange = .week
     @State private var days: [Day] = []
     @State private var isLoading = true
+    @AccessibilityFocusState private var isTitleFocused: Bool
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                Text("History")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityFocused($isTitleFocused)
+
                 // Time range picker
                 Picker("Time Range", selection: $selectedTimeRange) {
                     ForEach(TimeRange.allCases) { range in
@@ -73,7 +83,7 @@ struct HistoryView: View {
                     }
                 }
             }
-            .navigationTitle("History")
+            .navigationBarTitleDisplayMode(.inline)
             .task {
                 await loadData()
             }
@@ -84,6 +94,12 @@ struct HistoryView: View {
             }
             .refreshable {
                 await loadData()
+            }
+            .onAppear {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    isTitleFocused = true
+                }
             }
         }
     }
@@ -96,6 +112,7 @@ struct HistoryView: View {
             Image(systemName: "calendar")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
             Text("No History Yet")
                 .font(.headline)

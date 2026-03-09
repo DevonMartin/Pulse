@@ -178,6 +178,8 @@ private struct EnergyButton: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(isSelected ? 1.1 : 1.0)
+        .accessibilityLabel("Energy level \(level)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     /// Color gradient from red (1) to mint (5)

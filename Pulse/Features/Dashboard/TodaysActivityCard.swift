@@ -28,7 +28,7 @@ struct TodaysActivityCard: View {
                 )
 
                 ActivityTile(
-                    title: "Active Cal",
+                    title: "Active Calories",
                     value: metrics?.activeCalories.map { "\(Int($0))" },
                     icon: "flame.fill",
                     color: .orange
@@ -77,6 +77,8 @@ private struct ActivityTile: View {
         .background(Color(.tertiarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .animation(.easeInOut(duration: 0.3), value: displayValue)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(value != nil ? "\(title): \(displayValue)" : "\(title): no data")
     }
 }
 

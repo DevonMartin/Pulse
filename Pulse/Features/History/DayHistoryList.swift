@@ -115,10 +115,32 @@ private struct DayCard: View {
     let day: Day
 
     @State private var isExpanded = false
+    @AccessibilityFocusState private var isDetailFocused: Bool
 
     /// Whether this day has actual health data (not just an empty metrics object)
     private var hasHealthData: Bool {
         day.healthMetrics?.hasAnyData == true
+    }
+
+    private var rowAccessibilityLabel: String {
+        let date = day.startDate.formatted(date: .long, time: .omitted)
+        let morning = day.firstCheckIn.map { "Morning energy \($0.energyLevel) of 5" } ?? "Morning not completed"
+        let evening = day.secondCheckIn.map { "Evening energy \($0.energyLevel) of 5" } ?? "Evening not completed"
+        let score = day.readinessScore.map { "Readiness \($0.score)" } ?? "No readiness score"
+        return "\(date). \(morning). \(evening). \(score)"
+    }
+
+    private var expandedAccessibilityLabel: String {
+        guard let metrics = day.healthMetrics else {
+            return "No health data was recorded for this day"
+        }
+        var parts: [String] = ["Health Metrics:"]
+        if let hr = metrics.restingHeartRate { parts.append("Resting heart rate \(Int(hr)) bpm") }
+        if let hrv = metrics.hrv { parts.append("Heart rate variability \(Int(hrv)) ms") }
+        if let _ = metrics.sleepDuration, let formatted = metrics.formattedSleepDuration { parts.append("Sleep \(formatted)") }
+        if let steps = metrics.steps { parts.append("Steps \(steps.formatted())") }
+        if parts.count == 1 { parts.append("No data available") }
+        return parts.joined(separator: ". ")
     }
 
     var body: some View {
@@ -165,7 +187,7 @@ private struct DayCard: View {
                     PlaceholderScoreBadge()
                 }
 
-                // Expand chevron - red if no health data
+                // Expand chevron
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(hasHealthData ? Color(.tertiaryLabel) : Color.red.opacity(0.6))
@@ -177,18 +199,36 @@ private struct DayCard: View {
                     isExpanded.toggle()
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(rowAccessibilityLabel)
+            .accessibilityHint(isExpanded ? "Double tap to collapse" : "Double tap to expand health details")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+                if isExpanded {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        isDetailFocused = true
+                    }
+                }
+            }
 
             // Expanded content
             if isExpanded {
-                if let metrics = day.healthMetrics {
-                    HealthMetricsDetail(metrics: metrics)
-                        .padding(.top, 12)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                } else {
-                    MissingHealthDataView()
-                        .padding(.top, 12)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                Group {
+                    if let metrics = day.healthMetrics {
+                        HealthMetricsDetail(metrics: metrics)
+                    } else {
+                        MissingHealthDataView()
+                    }
                 }
+                .padding(.top, 12)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(expandedAccessibilityLabel)
+                .accessibilityFocused($isDetailFocused)
             }
         }
         .padding()
@@ -224,6 +264,8 @@ private struct CheckInSlotRow: View {
                 PlaceholderEnergyBadge()
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(slot != nil ? "\(label) check-in: energy level \(slot!.energyLevel) of 5" : "\(label) check-in: not completed")
     }
 }
 
@@ -239,6 +281,7 @@ private struct ReadinessScoreBadge: View {
             .foregroundStyle(.white)
             .frame(width: 44, height: 44)
             .background(Circle().fill(ReadinessStyles.color(for: score)))
+            .accessibilityLabel("Readiness score: \(score)")
     }
 }
 
@@ -252,6 +295,7 @@ private struct PlaceholderScoreBadge: View {
             .foregroundStyle(.secondary)
             .frame(width: 44, height: 44)
             .background(Circle().fill(Color(.tertiarySystemFill)))
+            .accessibilityLabel("No readiness score")
     }
 }
 
@@ -419,6 +463,8 @@ private struct MetricPill: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.tertiarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 

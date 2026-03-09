@@ -124,17 +124,21 @@ struct CheckInCard: View {
 
     private var morningPromptView: some View {
         VStack(spacing: 12) {
-            Image(systemName: "sparkles")
-                .font(.largeTitle)
-                .foregroundStyle(.orange)
+            VStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.largeTitle)
+                    .foregroundStyle(.orange)
 
-            Text("Ready to Start?")
-                .font(.headline)
+                Text("Ready to Start?")
+                    .font(.headline)
 
-            Text("Begin your day with a quick check-in")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                Text("Begin your day with a quick check-in")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Ready to start? Begin your day with a quick check-in")
 
             Button("First Check-In") {
                 onMorningCheckInTapped()
@@ -163,21 +167,27 @@ struct CheckInCard: View {
                 EnergyBadge(level: energyLevel)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("First check-in complete. Come back after \(formattedTime(hour: eveningWindowOpensHour)) for your next check-in\(day?.firstCheckIn.map { ". Energy level \($0.energyLevel) of 5" } ?? "")")
     }
 
     private var eveningPromptView: some View {
         VStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.badge.questionmark")
-                .font(.largeTitle)
-                .foregroundStyle(.purple)
+            VStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.badge.questionmark")
+                    .font(.largeTitle)
+                    .foregroundStyle(.purple)
 
-            Text("Time for Check-In #2")
-                .font(.headline)
+                Text("Time for Check-In #2")
+                    .font(.headline)
 
-            Text("Wrap up your day with your second check-in")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                Text("Wrap up your day with your second check-in")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Time for check-in number 2. Wrap up your day with your second check-in")
 
             Button("Second Check-In") {
                 onEveningCheckInTapped()
@@ -200,22 +210,28 @@ struct CheckInCard: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("All done for today. Come back after \(formattedTime(hour: morningWindowOpensHour)) for your next check-in")
     }
 
     private var morningMissedView: some View {
         VStack(spacing: 12) {
-            Image(systemName: "clock.badge.exclamationmark")
-                .font(.largeTitle)
-                .foregroundStyle(.orange)
-
-            Text("First check-in window passed")
-                .font(.headline)
-
             if isEveningWindow {
-                Text("You can still do your second check-in")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                VStack(spacing: 12) {
+                    Image(systemName: "clock.badge.exclamationmark")
+                        .font(.largeTitle)
+                        .foregroundStyle(.orange)
+
+                    Text("First check-in window passed")
+                        .font(.headline)
+
+                    Text("You can still do your second check-in")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("First check-in window passed. You can still do your second check-in")
 
                 Button("Second Check-In") {
                     onEveningCheckInTapped()
@@ -224,10 +240,21 @@ struct CheckInCard: View {
                 .tint(.purple)
                 .controlSize(.regular)
             } else {
-                Text("Second check-in window opens later")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                VStack(spacing: 12) {
+                    Image(systemName: "clock.badge.exclamationmark")
+                        .font(.largeTitle)
+                        .foregroundStyle(.orange)
+
+                    Text("First check-in window passed")
+                        .font(.headline)
+
+                    Text("Second check-in window opens later")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("First check-in window passed. Second check-in window opens later")
             }
         }
         .padding(.vertical, 8)
@@ -275,6 +302,7 @@ private struct EnergyBadge: View {
             .foregroundStyle(.white)
             .frame(width: 48, height: 48)
             .background(Circle().fill(energyColor))
+            .accessibilityLabel("Energy level \(level) of 5")
     }
 
     private var energyColor: Color {

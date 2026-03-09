@@ -165,6 +165,8 @@ struct PulseWidgetEntryView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Readiness score: \(score), \(description)")
     }
 
     @ViewBuilder
@@ -173,6 +175,7 @@ struct PulseWidgetEntryView: View {
             Image(systemName: icon)
                 .font(.title)
                 .foregroundStyle(color)
+                .accessibilityHidden(true)
 
             Text("Check in")
                 .font(.callout)

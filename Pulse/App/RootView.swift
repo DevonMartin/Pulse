@@ -16,6 +16,9 @@ struct RootView: View {
 	@AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 	@State private var showOnboarding: Bool
 
+	/// Tab selection tracking for VoiceOver focus management
+	@State private var selectedTab = 0
+
 	/// Deep link state for showing check-in sheets
 	@State private var showingMorningCheckIn = false
 	@State private var showingEveningCheckIn = false
@@ -38,6 +41,7 @@ struct RootView: View {
 	var body: some View {
 		ZStack {
 			mainTabView
+				.accessibilityHidden(showOnboarding)
 			if showOnboarding {
 				OnboardingView {
 					hasCompletedOnboarding = true
@@ -52,16 +56,18 @@ struct RootView: View {
 
 	@ViewBuilder
 	private var mainTabView: some View {
-		TabView {
+		TabView(selection: $selectedTab) {
 			DashboardView()
 				.tabItem {
 					Label("Dashboard", systemImage: "heart.text.square")
 				}
+				.tag(0)
 
 			HistoryView()
 				.tabItem {
 					Label("History", systemImage: "chart.line.uptrend.xyaxis")
 				}
+				.tag(1)
 		}
 		.onOpenURL { url in
 			handleDeepLink(url)

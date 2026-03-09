@@ -38,6 +38,7 @@ struct OnboardingView: View {
     }()
     @State private var scheduleSaved = false
     @State private var remindersEnabled = true
+    @AccessibilityFocusState private var accessibilityFocus: Int?
 
     /// Called when onboarding completes (sets the persistent flag in the parent).
     var onComplete: () -> Void
@@ -46,13 +47,13 @@ struct OnboardingView: View {
 
     var body: some View {
         TabView(selection: $currentPage) {
-            welcomePage.tag(0)
-            howItWorksPage.tag(1)
-            readinessScorePage.tag(2)
-            watchPage.tag(3)
-            personalizationPage.tag(4)
-            schedulePage.tag(5)
-            permissionPage.tag(6)
+            welcomePage.accessibilityHidden(currentPage != 0).tag(0)
+            howItWorksPage.accessibilityHidden(currentPage != 1).tag(1)
+            readinessScorePage.accessibilityHidden(currentPage != 2).tag(2)
+            watchPage.accessibilityHidden(currentPage != 3).tag(3)
+            personalizationPage.accessibilityHidden(currentPage != 4).tag(4)
+            schedulePage.accessibilityHidden(currentPage != 5).tag(5)
+            permissionPage.accessibilityHidden(currentPage != 6).tag(6)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .overlay(alignment: .bottom) {
@@ -60,10 +61,19 @@ struct OnboardingView: View {
                 .padding(.bottom, 16)
         }
         .background(Color(.systemBackground))
+        .task {
+            try? await Task.sleep(for: .milliseconds(500))
+            accessibilityFocus = 0
+        }
         .onChange(of: currentPage) { oldPage, newPage in
             // Save schedule if the user swiped forward past the schedule page
             if oldPage == 5 && newPage > 5 {
                 saveSchedule()
+            }
+            // Move VoiceOver focus to the top of the new page after transition settles
+            Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                accessibilityFocus = newPage
             }
         }
     }
@@ -74,21 +84,24 @@ struct OnboardingView: View {
         VStack(spacing: 32) {
             Spacer()
 
-            Image(systemName: "heart.text.square")
-                .font(.system(size: 64))
-                .foregroundStyle(.orange)
+            VStack(spacing: 32) {
+                Image(systemName: "heart.text.square")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.orange)
 
-            VStack(spacing: 12) {
                 Text("Welcome to Pulse")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-
-                Text("Track how you feel alongside what your body is doing, and start to see what actually affects your energy, recovery, and performance.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Welcome to Pulse")
+            .accessibilityFocused($accessibilityFocus, equals: 0)
+
+            Text("Track how you feel alongside what your body is doing, and start to see what actually affects your energy, recovery, and performance.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
 
             Spacer()
 
@@ -106,6 +119,7 @@ struct OnboardingView: View {
                         Text("How It Works")
                             .font(.largeTitle)
                             .fontWeight(.bold)
+                            .accessibilityFocused($accessibilityFocus, equals: 1)
 
                         Text("Two quick check-ins each day, combined with your health data")
                             .font(.subheadline)
@@ -159,6 +173,7 @@ struct OnboardingView: View {
                         Text("Your Readiness Score")
                             .font(.largeTitle)
                             .fontWeight(.bold)
+                            .accessibilityFocused($accessibilityFocus, equals: 2)
 
                         Text("A daily snapshot of how prepared your body is, based on real data and how you actually feel")
                             .font(.subheadline)
@@ -213,6 +228,7 @@ struct OnboardingView: View {
                         Text("Wear Your Watch")
                             .font(.largeTitle)
                             .fontWeight(.bold)
+                            .accessibilityFocused($accessibilityFocus, equals: 3)
 
                         Text("Pulse relies on data from Apple Watch to build your readiness score")
                             .font(.subheadline)
@@ -223,10 +239,13 @@ struct OnboardingView: View {
                     }
                     .padding(.top, 60)
 
-                    Image(systemName: "applewatch.and.arrow.forward")
-                        .font(.system(size: 64))
-                        .foregroundStyle(.orange)
-                        .padding(.top, 8)
+                    ZStack {
+                        Image(systemName: "applewatch.and.arrow.forward")
+                            .font(.system(size: 64))
+                            .foregroundStyle(.orange)
+                    }
+                    .padding(.top, 8)
+                    .accessibilityHidden(true)
 
                     VStack(spacing: 16) {
                         watchDataRow(
@@ -262,6 +281,7 @@ struct OnboardingView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 32)
                 .padding(.top, 12)
+                .accessibilityLabel("Without a Watch, Pulse won't have heart rate, heart rate variability, or sleep data; your score will rely mostly on your energy check-ins.")
 
             nextButton("Continue", page: 4)
                 .padding(.top, 12)
@@ -278,6 +298,7 @@ struct OnboardingView: View {
                         Text("Gets Smarter Over Time")
                             .font(.largeTitle)
                             .fontWeight(.bold)
+                            .accessibilityFocused($accessibilityFocus, equals: 4)
 
                         Text("Pulse learns what matters most for you specifically")
                             .font(.subheadline)
@@ -341,6 +362,7 @@ struct OnboardingView: View {
                         Text("Set Your Schedule")
                             .font(.largeTitle)
                             .fontWeight(.bold)
+                            .accessibilityFocused($accessibilityFocus, equals: 5)
 
                         Text("Choose when you'd like to check in each day")
                             .font(.subheadline)
@@ -363,6 +385,7 @@ struct OnboardingView: View {
                                     .font(.title3)
                                     .foregroundStyle(.orange)
                             }
+                            .accessibilityHidden(true)
 
                             DatePicker(
                                 "Morning",
@@ -386,6 +409,7 @@ struct OnboardingView: View {
                                     .font(.title3)
                                     .foregroundStyle(.purple)
                             }
+                            .accessibilityHidden(true)
 
                             DatePicker(
                                 "Evening",
@@ -405,6 +429,7 @@ struct OnboardingView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "bell.fill")
                                 .foregroundStyle(.orange)
+                                .accessibilityHidden(true)
                             Text("Remind me at these times")
                                 .font(.subheadline)
                         }
@@ -482,21 +507,24 @@ struct OnboardingView: View {
 
     private var permissionRequestContent: some View {
         VStack(spacing: 20) {
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.orange)
+            VStack(spacing: 12) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.orange)
 
-            VStack(spacing: 8) {
                 Text("Allow Health Access")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-
-                Text("Pulse reads health data from your Apple Watch or iPhone to power your readiness score. Nothing is shared or sent anywhere; all data stays on your device.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Allow Health Access")
+            .accessibilityFocused($accessibilityFocus, equals: 6)
+
+            Text("Pulse reads health data from your Apple Watch or iPhone to power your readiness score. Nothing is shared or sent anywhere; all data stays on your device.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
 
             VStack(spacing: 6) {
 				healthDataPill(icon: "waveform.path.ecg", color: .red, label: "Resting Heart Rate")
@@ -507,26 +535,30 @@ struct OnboardingView: View {
                 healthDataPill(icon: "figure.run", color: .mint, label: "Workouts")
             }
             .padding(.horizontal, 40)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Pulse will access: Resting Heart Rate, Heart Rate Variability, Sleep, Steps, Active Energy, and Workouts")
         }
     }
 
     private var noDataWarningContent: some View {
         VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.shield.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.orange)
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.shield.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.orange)
 
-            VStack(spacing: 8) {
                 Text("No Health Data Found")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-
-                Text("If you declined access, open the Health app, tap your profile picture, then Privacy \u{2192} Apps \u{2192} Pulse to enable access. If you don't have health data yet, Pulse will start tracking when data becomes available.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("No Health Data Found")
+
+            Text("If you declined access, open the Health app, tap your profile picture, then Privacy \u{2192} Apps \u{2192} Pulse to enable access. If you don't have health data yet, Pulse will start tracking when data becomes available.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
         }
     }
 
@@ -569,6 +601,9 @@ struct OnboardingView: View {
                     .animation(.easeInOut(duration: 0.2), value: currentPage)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Page \(currentPage + 1) of \(pageCount)")
+        .accessibilitySortPriority(-1)
     }
 
     // MARK: - Reusable Components
@@ -588,7 +623,8 @@ struct OnboardingView: View {
     }
 
     private func stepRow(number: String, icon: String, color: Color, title: String, description: String) -> some View {
-        HStack(alignment: .top, spacing: 14) {
+        let expandedDescription = description.replacingOccurrences(of: "HRV", with: "heart rate variability")
+        return HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle()
                     .fill(color.opacity(0.15))
@@ -598,6 +634,7 @@ struct OnboardingView: View {
                     .font(.title3)
                     .foregroundStyle(color)
             }
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -613,6 +650,8 @@ struct OnboardingView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title): \(expandedDescription)")
     }
 
     private var mockScoreCard: some View {
@@ -650,6 +689,8 @@ struct OnboardingView: View {
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Example readiness score: 74 out of 100, Good. Breakdown: Resting heart rate 80%, Heart rate variability 70%, Sleep 85%, Energy 60%.")
     }
 
     private func mockBreakdownRow(label: String, value: CGFloat, color: Color) -> some View {
@@ -679,10 +720,16 @@ struct OnboardingView: View {
     }
 
     private func componentRow(color: Color, title: String, detail: String) -> some View {
-        HStack(spacing: 12) {
+        let expandedTitle = switch title {
+        case "Resting HR": "Resting heart rate"
+        case "HRV": "Heart rate variability"
+        default: title
+        }
+        return HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(color)
                 .frame(width: 4, height: 28)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
@@ -695,10 +742,15 @@ struct OnboardingView: View {
 
             Spacer()
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(expandedTitle): \(detail)")
     }
 
     private func personalizationStage(icon: String, color: Color, title: String, description: String, progress: CGFloat) -> some View {
-        HStack(alignment: .top, spacing: 14) {
+        let expandedTitle = title.replacingOccurrences(of: "–", with: " to ")
+        let expandedDescription = description
+            .replacingOccurrences(of: "HRV", with: "heart rate variability")
+        return HStack(alignment: .top, spacing: 14) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.title2)
@@ -715,6 +767,7 @@ struct OnboardingView: View {
                             .frame(width: 36 * progress, height: 4)
                     }
             }
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -730,10 +783,13 @@ struct OnboardingView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(expandedTitle): \(expandedDescription)")
     }
 
     private func watchDataRow(icon: String, color: Color, title: String, description: String) -> some View {
-        HStack(alignment: .top, spacing: 14) {
+        let expandedTitle = title.replacingOccurrences(of: "HRV", with: "Heart Rate Variability")
+        return HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle()
                     .fill(color.opacity(0.15))
@@ -743,6 +799,7 @@ struct OnboardingView: View {
                     .font(.title3)
                     .foregroundStyle(color)
             }
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -758,6 +815,8 @@ struct OnboardingView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(expandedTitle): \(description)")
     }
 
     private func healthDataPill(icon: String, color: Color, label: String) -> some View {
@@ -773,6 +832,8 @@ struct OnboardingView: View {
             Spacer()
         }
         .padding(.vertical, 6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
     }
 
     // MARK: - Actions

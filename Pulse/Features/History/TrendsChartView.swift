@@ -102,6 +102,8 @@ struct TrendsChartView: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Average score: \(averageScore.map { "\($0)" } ?? "no data")")
 
             Divider()
                 .frame(height: 40)
@@ -110,11 +112,13 @@ struct TrendsChartView: View {
             VStack(spacing: 4) {
                 Text("\(daysWithScores.count)")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                Text("Days")
+                Text(daysWithScores.count == 1 ? "Day" : "Days")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(daysWithScores.count) days with scores")
 
             Divider()
                 .frame(height: 40)
@@ -129,10 +133,14 @@ struct TrendsChartView: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Trend: \(trendDescription)")
         }
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Average score: \(averageScore.map { "\($0)" } ?? "no data"). \(daysWithScores.count) \(daysWithScores.count == 1 ? "day" : "days") with \(daysWithScores.count == 1 ? "a score" : "scores"). Trend: \(trendDescription)")
     }
 
     private var trendIcon: String {
@@ -150,6 +158,14 @@ struct TrendsChartView: View {
             return "arrow.down.right"
         } else {
             return "arrow.right"
+        }
+    }
+
+    private var trendDescription: String {
+        switch trendIcon {
+        case "arrow.up.right": return "improving"
+        case "arrow.down.right": return "declining"
+        default: return "stable"
         }
     }
 

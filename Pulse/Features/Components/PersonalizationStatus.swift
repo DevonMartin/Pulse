@@ -32,6 +32,7 @@ struct PersonalizationStatus: View {
             HStack {
                 Image(systemName: statusIcon)
                     .foregroundStyle(statusColor)
+                    .accessibilityHidden(true)
 
                 Text(statusTitle)
                     .font(.subheadline)
@@ -59,6 +60,9 @@ struct PersonalizationStatus: View {
                     }
                 }
                 .frame(height: 6)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Personalization progress: \(exampleCount) of \(targetExamples) days")
+                .accessibilityValue("\(Int(progress * 100)) percent")
             }
 
             Text(statusDescription)
@@ -68,6 +72,16 @@ struct PersonalizationStatus: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(cardAccessibilityLabel)
+    }
+
+    private var cardAccessibilityLabel: String {
+        if exampleCount >= 3 && exampleCount < targetExamples {
+            return "\(statusTitle). \(exampleCount) of \(targetExamples) days, \(Int(progress * 100)) percent. \(statusDescription)"
+        } else {
+            return "\(statusTitle). \(statusDescription)"
+        }
     }
 
     // MARK: - Computed Properties

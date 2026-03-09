@@ -60,6 +60,8 @@ struct ReadinessScoreCard: View {
                     }
                     .frame(width: 120, height: 120)
                     .animation(.easeInOut(duration: 0.5), value: score.score)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Readiness score: \(score.score) out of 100, \(score.scoreDescription)")
 
                     // Breakdown
                     VStack(alignment: .leading, spacing: 8) {
@@ -111,6 +113,8 @@ struct ReadinessScoreCard: View {
                         }
                     }
                     .frame(width: 120, height: 120)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Readiness score unavailable, \(placeholderLabel)")
 
                     // Placeholder breakdown
                     VStack(alignment: .leading, spacing: 8) {
@@ -131,6 +135,21 @@ struct ReadinessScoreCard: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(cardAccessibilityLabel)
+    }
+
+    private var cardAccessibilityLabel: String {
+        if let score = score {
+            let b = score.breakdown
+            let rhr = b.restingHeartRateScore.map { "\($0)%" } ?? "unavailable"
+            let hrv = b.hrvScore.map { "\($0)%" } ?? "unavailable"
+            let sleep = b.sleepScore.map { "\($0)%" } ?? "unavailable"
+            let energy = b.energyScore.map { "\($0)%" } ?? "unavailable"
+            return "Today's Readiness: \(score.score) out of 100, \(score.scoreDescription). Resting heart rate \(rhr), Heart rate variability \(hrv), Sleep \(sleep), Energy \(energy). \(score.recommendation)"
+        } else {
+            return "Today's Readiness: \(placeholderLabel). \(placeholderMessage)"
+        }
     }
 
     private var scoreColor: Color {
@@ -217,6 +236,16 @@ private struct BreakdownRow: View {
             }
         }
         .animation(.easeInOut(duration: 0.5), value: animatableScore)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(score != nil ? "\(accessibilityName): \(score!)%" : "\(accessibilityName): no data")
+    }
+
+    private var accessibilityName: String {
+        switch label {
+        case "Resting HR": "Resting heart rate"
+        case "HRV": "Heart rate variability"
+        default: label
+        }
     }
 }
 
