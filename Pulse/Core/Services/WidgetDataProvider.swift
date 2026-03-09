@@ -28,7 +28,8 @@ enum WidgetDataProvider {
     /// Saves widget data to the shared container and triggers a widget refresh.
     static func save(_ data: WidgetData) {
         guard let url = fileURL else {
-            print("WidgetDataProvider: Could not get App Group container URL")
+            // TODO: Surface error to the user
+            // print("WidgetDataProvider: Could not get App Group container URL")
             return
         }
 
@@ -39,7 +40,8 @@ enum WidgetDataProvider {
             // Tell iOS to refresh the widget immediately
             WidgetCenter.shared.reloadTimelines(ofKind: "PulseWidget")
         } catch {
-            print("WidgetDataProvider: Failed to save widget data: \(error)")
+            // TODO: Surface error to the user
+            // print("WidgetDataProvider: Failed to save widget data: \(error)")
         }
     }
 
@@ -49,7 +51,8 @@ enum WidgetDataProvider {
     /// Returns nil if no data exists or if reading fails.
     static func load() -> WidgetData? {
         guard let url = fileURL else {
-            print("WidgetDataProvider: Could not get App Group container URL")
+            // TODO: Surface error to the user
+            // print("WidgetDataProvider: Could not get App Group container URL")
             return nil
         }
 
@@ -61,7 +64,8 @@ enum WidgetDataProvider {
             let data = try Data(contentsOf: url)
             return try JSONDecoder().decode(WidgetData.self, from: data)
         } catch {
-            print("WidgetDataProvider: Failed to load widget data: \(error)")
+            // TODO: Surface error to the user
+            // print("WidgetDataProvider: Failed to load widget data: \(error)")
             return nil
         }
     }

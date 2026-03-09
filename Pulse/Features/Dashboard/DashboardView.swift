@@ -154,7 +154,8 @@ struct DashboardView: View {
             currentDay = result.day
             todayMetrics = result.freshMetrics
         } catch {
-            print("Failed to load today's data: \(error)")
+            // TODO: Surface error to the user
+            // print("Failed to load today's data: \(error)")
         }
 
         // Update ML status
@@ -172,7 +173,8 @@ struct DashboardView: View {
             let completedDays = try await container.dayRepository.getCompletedDays()
             await container.readinessService.retrain(with: completedDays)
         } catch {
-            print("Failed to retrain ML model: \(error)")
+            // TODO: Surface error to the user
+            // print("Failed to retrain ML model: \(error)")
         }
     }
 

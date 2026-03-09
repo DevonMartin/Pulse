@@ -140,7 +140,8 @@ struct HistoryView: View {
                 to: Date()
             )
         } catch {
-            print("Failed to load days: \(error)")
+            // TODO: Surface error to the user
+            // print("Failed to load days: \(error)")
             days = []
         }
 
@@ -159,7 +160,8 @@ struct HistoryView: View {
                 days = newDays
             }
         } catch {
-            print("Failed to load data: \(error)")
+            // TODO: Surface error to the user
+            // print("Failed to load data: \(error)")
         }
     }
 }
