@@ -18,6 +18,9 @@ struct RootView: View {
 	@State private var showSplash: Bool
 	@State private var showOnboardingIcon = false
 	@State private var splashAnimationDone = false
+	@State private var showDashboardSplash: Bool
+	@State private var dashboardSplashExpanding = false
+	@State private var skipDashboardSplashAnimation = false
 	@Namespace private var heroAnimation
 
 	/// Tab selection tracking for VoiceOver focus management
@@ -34,12 +37,14 @@ struct RootView: View {
 		if CommandLine.arguments.contains("--uitesting") {
 			_showOnboarding = State(initialValue: false)
 			_showSplash = State(initialValue: false)
+			_showDashboardSplash = State(initialValue: false)
 			return
 		}
 		#endif
 		let completed = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
 		_showOnboarding = State(initialValue: !completed)
 		_showSplash = State(initialValue: !completed)
+		_showDashboardSplash = State(initialValue: completed)
 	}
 
 	// MARK: - Body
@@ -109,6 +114,40 @@ struct RootView: View {
 				.opacity(splashAnimationDone ? 0 : 1)
 				.allowsHitTesting(false)
 			}
+
+			// Dashboard splash — expanding icon transition when launching
+			// straight to the dashboard (onboarding already completed).
+			if showDashboardSplash {
+				Color("LaunchBackground")
+					.ignoresSafeArea()
+					.opacity(dashboardSplashExpanding ? 0 : 1)
+					.allowsHitTesting(false)
+					.task {
+						try? await Task.sleep(for: .milliseconds(400))
+						guard !skipDashboardSplashAnimation else { return }
+						withAnimation(.spring(duration: 0.5)) {
+							dashboardSplashExpanding = true
+						}
+						try? await Task.sleep(for: .milliseconds(600))
+						showDashboardSplash = false
+					}
+
+				GeometryReader { proxy in
+					Image("LaunchImage")
+						.resizable()
+						.scaledToFit()
+						.frame(
+							width: dashboardSplashExpanding ? proxy.size.height * 3 : launchIconSize,
+							height: dashboardSplashExpanding ? proxy.size.height * 3 : launchIconSize
+						)
+						.position(
+							x: proxy.size.width / 2,
+							y: proxy.size.height / 2
+						)
+				}
+				.ignoresSafeArea()
+				.allowsHitTesting(false)
+			}
 		}
 	}
 
@@ -173,6 +212,14 @@ struct RootView: View {
 	private func handleDeepLink(_ url: URL) {
 		// Block deep links during onboarding
 		guard hasCompletedOnboarding else { return }
+
+		// Immediately prevent the expanding animation from firing,
+		// then remove the splash after a short delay so the sheet
+		// has time to present and cover the dashboard.
+		skipDashboardSplashAnimation = true
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+			showDashboardSplash = false
+		}
 
 		// Expected format: pulse://checkin
 		guard url.scheme == "pulse",
