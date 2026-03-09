@@ -83,7 +83,7 @@ struct RootView: View {
 					splashActive: showSplash,
 					showIcon: showOnboardingIcon
 				) {
-					// hasCompletedOnboarding = true
+					hasCompletedOnboarding = true
 					withAnimation(.easeInOut) { onboardingFading = true }
 					DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
 						showOnboarding = false
