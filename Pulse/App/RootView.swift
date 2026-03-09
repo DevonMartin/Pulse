@@ -15,6 +15,10 @@ struct RootView: View {
 	/// Whether the user has completed the onboarding flow (persisted).
 	@AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 	@State private var showOnboarding: Bool
+	@State private var showSplash: Bool
+	@State private var showOnboardingIcon = false
+	@State private var splashAnimationDone = false
+	@Namespace private var heroAnimation
 
 	/// Tab selection tracking for VoiceOver focus management
 	@State private var selectedTab = 0
@@ -29,11 +33,13 @@ struct RootView: View {
 		#if DEBUG
 		if CommandLine.arguments.contains("--uitesting") {
 			_showOnboarding = State(initialValue: false)
+			_showSplash = State(initialValue: false)
 			return
 		}
 		#endif
 		let completed = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
 		_showOnboarding = State(initialValue: !completed)
+		_showSplash = State(initialValue: !completed)
 	}
 
 	// MARK: - Body
@@ -42,16 +48,74 @@ struct RootView: View {
 		ZStack {
 			mainTabView
 				.accessibilityHidden(showOnboarding)
+
 			if showOnboarding {
-				OnboardingView {
+				// Solid base — always covers the dashboard during onboarding
+				Color(.systemBackground)
+					.ignoresSafeArea()
+					.task {
+						guard showSplash else { return }
+						try? await Task.sleep(for: .milliseconds(800))
+						withAnimation(.spring(duration: 0.7)) {
+							showSplash = false
+						}
+						try? await Task.sleep(for: .milliseconds(800))
+						showOnboardingIcon = true
+						try? await Task.sleep(for: .milliseconds(50))
+						splashAnimationDone = true
+					}
+
+				// Splash background — fades via direct opacity animation
+				Color("LaunchBackground")
+					.ignoresSafeArea()
+					.opacity(showSplash ? 1 : 0)
+
+				// OnboardingView is always present behind the splash
+				OnboardingView(
+					heroAnimation: heroAnimation,
+					splashActive: showSplash,
+					showIcon: showOnboardingIcon
+				) {
 					hasCompletedOnboarding = true
 					withAnimation(.easeInOut) { showOnboarding = false }
 				}
-				.transition(.opacity)
-				.id("onboarding")
-				.zIndex(1)
+
+				// Floating icon — follows the onboarding anchor via matchedGeometry.
+				// During splash (no source) it stays centered at intrinsic size;
+				// once the onboarding anchor becomes the source it animates to
+				// the page-1 position and scales down to 80×80.
+				// GeometryReader + ignoresSafeArea centers on the full screen,
+				// matching the system launch screen's centering.
+				GeometryReader { proxy in
+					Image("LaunchImage")
+						.resizable()
+						.scaledToFit()
+						.frame(
+							width: showSplash ? launchIconSize : 80,
+							height: showSplash ? launchIconSize : 80
+						)
+						.matchedGeometryEffect(
+							id: "appIcon",
+							in: heroAnimation,
+							properties: .position,
+							isSource: false
+						)
+						.position(
+							x: proxy.size.width / 2,
+							y: proxy.size.height / 2
+						)
+				}
+				.ignoresSafeArea()
+				.opacity(splashAnimationDone ? 0 : 1)
+				.allowsHitTesting(false)
 			}
 		}
+	}
+
+	/// Intrinsic size of the launch-screen PDF so the floating icon
+	/// starts at the same dimensions the system launch screen used.
+	private var launchIconSize: CGFloat {
+		UIImage(named: "LaunchImage")?.size.width ?? 80
 	}
 
 	@ViewBuilder

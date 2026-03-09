@@ -26,6 +26,7 @@ struct OnboardingView: View {
     @Environment(AppContainer.self) private var container
 
     @State private var currentPage = 0
+    @State private var showContent = false
     @State private var isRequestingAuth = false
     @State private var showNoDataWarning = false
 
@@ -39,6 +40,15 @@ struct OnboardingView: View {
     @State private var scheduleSaved = false
     @State private var remindersEnabled = true
     @AccessibilityFocusState private var accessibilityFocus: Int?
+
+    /// Namespace shared with RootView for the launch-to-onboarding icon transition.
+    var heroAnimation: Namespace.ID
+
+    /// True while the splash overlay is visible; drives the matchedGeometry anchor.
+    var splashActive: Bool
+
+    /// True after the splash-to-onboarding animation finishes and the floating icon is removed.
+    var showIcon: Bool
 
     /// Called when onboarding completes (sets the persistent flag in the parent).
     var onComplete: () -> Void
@@ -56,11 +66,20 @@ struct OnboardingView: View {
             permissionPage.accessibilityHidden(currentPage != 6).tag(6)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
+        .allowsHitTesting(showIcon)
         .overlay(alignment: .bottom) {
             pageIndicator
                 .padding(.bottom, 16)
+                .opacity(showContent ? 1 : 0)
         }
         .background(Color(.systemBackground))
+        .onChange(of: splashActive) { _, active in
+            if !active {
+                withAnimation(.easeIn(duration: 0.5).delay(0.15)) {
+                    showContent = true
+                }
+            }
+        }
         .task {
             try? await Task.sleep(for: .milliseconds(500))
             accessibilityFocus = 0
@@ -85,13 +104,22 @@ struct OnboardingView: View {
             Spacer()
 
             VStack(spacing: 32) {
-                Image(systemName: "heart.text.square")
-                    .font(.system(size: 64))
-                    .foregroundStyle(.orange)
+                Image("LaunchImage")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .opacity(showIcon ? 1 : 0)
+                    .matchedGeometryEffect(
+                        id: "appIcon",
+                        in: heroAnimation,
+                        properties: .position,
+                        isSource: !splashActive
+                    )
 
                 Text("Welcome to Pulse")
                     .font(.largeTitle)
                     .fontWeight(.bold)
+                    .opacity(showContent ? 1 : 0)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Welcome to Pulse")
@@ -102,10 +130,12 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
+                .opacity(showContent ? 1 : 0)
 
             Spacer()
 
             nextButton("Get Started", page: 1)
+                .opacity(showContent ? 1 : 0)
         }
     }
 
@@ -892,7 +922,15 @@ struct OnboardingView: View {
 
 // MARK: - Preview
 
+private struct OnboardingPreview: View {
+    @Namespace private var animation
+
+    var body: some View {
+        OnboardingView(heroAnimation: animation, splashActive: false, showIcon: true, onComplete: {})
+            .environment(AppContainer(healthKitService: MockHealthKitService()))
+    }
+}
+
 #Preview("Onboarding") {
-    OnboardingView(onComplete: {})
-        .environment(AppContainer(healthKitService: MockHealthKitService()))
+    OnboardingPreview()
 }
