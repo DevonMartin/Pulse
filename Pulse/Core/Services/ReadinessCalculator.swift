@@ -29,22 +29,29 @@ protocol ReadinessCalculatorProtocol: Sendable {
 
 /// Calculates readiness scores using population-based norms.
 ///
-/// This is the v1 algorithm that uses general population ranges rather than
-/// personalized baselines. Future versions will incorporate historical data
-/// for personalized scoring.
+/// This is the rules-based calculator that scores health metrics against
+/// general population ranges. It serves two roles:
+/// 1. **Baseline**: ``ReadinessService`` blends this score with the
+///    ``PersonalizedReadinessModel`` prediction, weighting the ML model
+///    more heavily as training data accumulates (0% ML on day 1, 100% by day 30).
+/// 2. **Fallback**: When the ML model is untrained or returns insufficient data,
+///    the rules-based score is used as-is.
 ///
 /// ## Scoring Philosophy
-/// Each metric is scored 0-100 based on how favorable the value is:
+/// Each metric is scored on a 0-100 scale based on how favorable the value is:
 /// - HRV: Higher is better (indicates parasympathetic recovery)
 /// - Resting HR: Lower is better (indicates cardiovascular efficiency)
 /// - Sleep: 7-9 hours is optimal (too little OR too much can indicate issues)
-/// - Energy: Direct mapping from user's 1-5 rating
+/// - Energy: Direct mapping from user's 1-5 rating (minimum score is 20)
 ///
 /// ## Weights
-/// - HRV: 30% - Most reliable recovery indicator
-/// - Sleep: 25% - Critical for recovery
-/// - Energy: 25% - Subjective but valuable signal
-/// - Resting HR: 20% - Useful but more variable
+/// - HRV: 30% — Most reliable recovery indicator
+/// - Sleep: 25% — Critical for recovery
+/// - Energy: 25% — Subjective but valuable signal
+/// - Resting HR: 20% — Useful but more variable
+///
+/// When a component is missing, its weight is redistributed proportionally
+/// among the available components.
 ///
 /// This struct is explicitly nonisolated since it performs pure computation
 /// with no mutable state, making it safe to use from any isolation context.

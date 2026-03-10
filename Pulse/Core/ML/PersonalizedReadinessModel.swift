@@ -209,7 +209,7 @@ actor PersonalizedReadinessModel {
     ///
     /// Computes: w = (X^T X + lambdaI)^(-1) X^T y
     ///
-    /// For small matrices (8x8), we use Gaussian elimination with partial pivoting
+    /// For small matrices (10x10), we use Gaussian elimination with partial pivoting
     /// instead of LAPACK to avoid deprecation warnings and complexity.
     ///
     /// - Parameters:
