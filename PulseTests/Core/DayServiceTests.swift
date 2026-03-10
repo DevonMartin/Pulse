@@ -42,7 +42,7 @@ struct DayServiceTests {
         let currentDate = testDate
         let repo = dayRepository ?? MockDayRepository(currentUserDayStart: currentDate)
         let health = healthKitService ?? MockHealthKitService()
-        let readinessService = ReadinessService(rulesCalculator: ReadinessCalculator())
+        let readinessService = ReadinessService(rulesCalculator: ReadinessCalculator(), healthKitService: health)
         let timeProvider = MockTimeWindowProvider(isMorningWindow: isMorningWindow, currentUserDayStart: currentDate)
 
         let service = DayService(

@@ -27,6 +27,9 @@ final class MockHealthKitService: HealthKitServiceProtocol {
     /// If set, requestAuthorization() will throw this error
     var authorizationError: Error?
 
+    /// If set, fetchMetrics() will throw this error
+    var fetchMetricsError: Error?
+
     /// The metrics to return from fetchMetrics(). If nil, returns realistic sample data.
     var mockMetrics: HealthMetrics?
 
@@ -70,6 +73,10 @@ final class MockHealthKitService: HealthKitServiceProtocol {
     func fetchMetrics(from start: Date, to end: Date) async throws -> HealthMetrics {
         fetchMetricsRanges.append((start: start, end: end))
         try await Task.sleep(for: .seconds(simulatedDelay))
+
+        if let error = fetchMetricsError {
+            throw error
+        }
 
         // Return custom mock data if set
         if let mockMetrics = mockMetrics {

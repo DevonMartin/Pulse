@@ -28,6 +28,7 @@ struct DayEntityTests {
         #expect(entity.secondCheckInEnergy == -1)
         #expect(entity.healthRestingHeartRate == -1)
         #expect(entity.readinessScore == -1)
+        #expect(entity.isActivityFinalized == false)
     }
 
     @Test func initializationFromEmptyDay() {
@@ -398,6 +399,44 @@ struct DayEntityTests {
 
         #expect(entity.hasReadinessScore == true)
         #expect(entity.readinessScore == 75)
+    }
+
+    // MARK: - Activity Finalization
+
+    @Test func roundTripPreservesActivityFinalized() {
+        let original = Day(
+            startDate: Date(),
+            firstCheckIn: CheckInSlot(energyLevel: 3),
+            isActivityFinalized: true
+        )
+
+        let entity = DayEntity(from: original)
+        #expect(entity.isActivityFinalized == true)
+
+        let restored = entity.toDay()
+        #expect(restored.isActivityFinalized == true)
+    }
+
+    @Test func updateSetsActivityFinalized() {
+        let entity = DayEntity(id: UUID(), startDate: Date())
+        #expect(entity.isActivityFinalized == false)
+
+        var day = entity.toDay()
+        day.isActivityFinalized = true
+        entity.update(from: day)
+
+        #expect(entity.isActivityFinalized == true)
+    }
+
+    @Test func defaultActivityFinalizedIsFalse() {
+        let day = Day(startDate: Date())
+        #expect(day.isActivityFinalized == false)
+
+        let entity = DayEntity(from: day)
+        #expect(entity.isActivityFinalized == false)
+
+        let restored = entity.toDay()
+        #expect(restored.isActivityFinalized == false)
     }
 
     // MARK: - Sentinel Value Detection

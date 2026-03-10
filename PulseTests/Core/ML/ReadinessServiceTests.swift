@@ -22,7 +22,7 @@ struct ReadinessServiceTests {
     // MARK: - ML Weight Tests
 
     @Test func mlWeightIsZeroWithNoData() async {
-        let service = ReadinessService()
+        let service = ReadinessService(healthKitService: MockHealthKitService())
 
         let weight = await service.mlWeight
 
@@ -30,7 +30,7 @@ struct ReadinessServiceTests {
     }
 
     @Test func mlWeightIncreasesWithData() async {
-        let service = ReadinessService()
+        let service = ReadinessService(healthKitService: MockHealthKitService())
 
         await service.setDaysOfData(15)
         let weight = await service.mlWeight
@@ -39,7 +39,7 @@ struct ReadinessServiceTests {
     }
 
     @Test func mlWeightCapsAtOne() async {
-        let service = ReadinessService()
+        let service = ReadinessService(healthKitService: MockHealthKitService())
 
         await service.setDaysOfData(50) // More than 30
         let weight = await service.mlWeight
@@ -48,7 +48,7 @@ struct ReadinessServiceTests {
     }
 
     @Test func mlWeightAt30DaysIsOne() async {
-        let service = ReadinessService()
+        let service = ReadinessService(healthKitService: MockHealthKitService())
 
         await service.setDaysOfData(30)
         let weight = await service.mlWeight
@@ -59,7 +59,7 @@ struct ReadinessServiceTests {
     // MARK: - Calculate Tests
 
     @Test func calculateReturnsScoreWithMetrics() async {
-        let service = ReadinessService()
+        let service = ReadinessService(healthKitService: MockHealthKitService())
         let metrics = HealthMetrics(
             date: Date(),
             restingHeartRate: 60,
@@ -75,7 +75,7 @@ struct ReadinessServiceTests {
     }
 
     @Test func calculateReturnsNilWithNoData() async {
-        let service = ReadinessService()
+        let service = ReadinessService(healthKitService: MockHealthKitService())
 
         let score = await service.calculate(from: nil, energyLevel: nil, previousDayMetrics: nil)
 
@@ -83,7 +83,7 @@ struct ReadinessServiceTests {
     }
 
     @Test func calculateFallsBackToRulesWhenMLNotTrained() async {
-        let service = ReadinessService()
+        let service = ReadinessService(healthKitService: MockHealthKitService())
         let metrics = HealthMetrics(
             date: Date(),
             restingHeartRate: 60,
@@ -104,7 +104,7 @@ struct ReadinessServiceTests {
 
     @Test func calculateUsesRulesOnlyOnDayZero() async {
         let rulesCalc = ReadinessCalculator()
-        let service = ReadinessService(rulesCalculator: rulesCalc)
+        let service = ReadinessService(rulesCalculator: rulesCalc, healthKitService: MockHealthKitService())
 
         let metrics = HealthMetrics(
             date: Date(),
@@ -126,7 +126,7 @@ struct ReadinessServiceTests {
     // MARK: - Training Example Count
 
     @Test func trainingExampleCountStartsAtZero() async {
-        let service = ReadinessService()
+        let service = ReadinessService(healthKitService: MockHealthKitService())
 
         let count = await service.trainingExampleCount
 

@@ -16,6 +16,9 @@ import Foundation
 /// 2. Label calculation (blended energy)
 /// 3. Filtering of incomplete days
 /// 4. Date sorting
+/// 5. Previous-day activity lookback with calendar adjacency
+/// 6. HealthKit fallback when previous calendar day has no Day record
+/// 7. Incomplete days provide lookback context without generating examples
 @MainActor
 struct TrainingDataCollectorTests {
 
@@ -60,10 +63,15 @@ struct TrainingDataCollectorTests {
         )
     }
 
+    /// Creates a collector with a mock HealthKit service.
+    private func makeCollector(mockHealthKit: MockHealthKitService? = nil) -> TrainingDataCollector {
+        TrainingDataCollector(healthKitService: mockHealthKit ?? MockHealthKitService())
+    }
+
     // MARK: - Collection Tests
 
     @Test func collectsOnlyCompleteDays() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -80,7 +88,7 @@ struct TrainingDataCollectorTests {
     }
 
     @Test func collectsMultipleCompleteDays() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -99,7 +107,7 @@ struct TrainingDataCollectorTests {
     // MARK: - Label Calculation Tests
 
     @Test func labelIsBlendedEnergy() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -119,7 +127,7 @@ struct TrainingDataCollectorTests {
     }
 
     @Test func labelRangeIsCorrect() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -143,7 +151,7 @@ struct TrainingDataCollectorTests {
     // MARK: - Sorting Tests
 
     @Test func examplesAreSortedByDate() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -166,7 +174,7 @@ struct TrainingDataCollectorTests {
     // MARK: - Feature Extraction Tests
 
     @Test func usesHealthMetricsFromDay() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -193,7 +201,11 @@ struct TrainingDataCollectorTests {
     }
 
     @Test func filtersExamplesWithInsufficientFeatures() async {
-        let collector = TrainingDataCollector()
+        // Use a mock that returns no HealthKit data so previous-day fallback
+        // doesn't add extra features
+        let mockHealthKit = MockHealthKitService()
+        mockHealthKit.mockMetrics = HealthMetrics(date: Date())
+        let collector = makeCollector(mockHealthKit: mockHealthKit)
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -221,7 +233,7 @@ struct TrainingDataCollectorTests {
     // MARK: - Empty Input Tests
 
     @Test func emptyDaysReturnsEmptyExamples() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let examples = await collector.collectTrainingData(from: [])
 
@@ -229,7 +241,7 @@ struct TrainingDataCollectorTests {
     }
 
     @Test func extractsMorningEnergyAsFeature() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -247,7 +259,7 @@ struct TrainingDataCollectorTests {
     }
 
     @Test func extractsPreviousDayActivityMetrics() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -271,8 +283,6 @@ struct TrainingDataCollectorTests {
         let examples = await collector.collectTrainingData(from: days)
 
         #expect(examples.count == 2)
-        // First day has no previous day
-        #expect(examples[0].features.previousDayStepsNormalized == nil)
         // Second day should use first day's activity
         #expect(examples[1].features.previousDayStepsNormalized == 0.5) // 10000/20000
         #expect(examples[1].features.previousDayCaloriesNormalized == 0.5) // 500/1000
@@ -282,7 +292,7 @@ struct TrainingDataCollectorTests {
     }
 
     @Test func onlyIncompleteDaysReturnsEmpty() async {
-        let collector = TrainingDataCollector()
+        let collector = makeCollector()
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -295,5 +305,73 @@ struct TrainingDataCollectorTests {
         let examples = await collector.collectTrainingData(from: days)
 
         #expect(examples.isEmpty)
+    }
+
+    // MARK: - Previous-Day Calendar Adjacency Tests
+
+    @Test func previousDayFallsBackToHealthKitWhenGapExists() async {
+        // Mon complete, skip Tue, Wed complete — collector fetches Tue's data from HealthKit
+        let mockHealthKit = MockHealthKitService()
+        let collector = makeCollector(mockHealthKit: mockHealthKit)
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let monday = calendar.date(byAdding: .day, value: -3, to: today)!
+        let wednesday = calendar.date(byAdding: .day, value: -1, to: today)!
+
+        // HealthKit will return Tue's activity data when queried
+        let tuesdayMetrics = HealthMetrics(
+            date: calendar.date(byAdding: .day, value: -2, to: today)!,
+            steps: 8_000,
+            activeCalories: 400
+        )
+        mockHealthKit.mockMetrics = tuesdayMetrics
+
+        let days = [
+            makeCompleteDay(date: monday),
+            makeCompleteDay(date: wednesday)
+        ]
+
+        let examples = await collector.collectTrainingData(from: days)
+
+        #expect(examples.count == 2)
+        // Wed should use Tue's HealthKit data
+        #expect(examples[1].features.previousDayStepsNormalized == 0.4) // 8000/20000
+        #expect(examples[1].features.previousDayCaloriesNormalized == 0.4) // 400/1000
+    }
+
+    @Test func incompleteDayProvidesLookbackContext() async {
+        // Mon complete, Tue incomplete (has metrics), Wed complete
+        // Wed should use Tue's metrics from the Day record, not fetch from HealthKit
+        let collector = makeCollector()
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let monday = calendar.date(byAdding: .day, value: -3, to: today)!
+        let tuesday = calendar.date(byAdding: .day, value: -2, to: today)!
+        let wednesday = calendar.date(byAdding: .day, value: -1, to: today)!
+
+        let tuesdayMetrics = HealthMetrics(
+            date: tuesday,
+            restingHeartRate: 58,
+            hrv: 45,
+            sleepDuration: 6 * 3600,
+            steps: 12_000,
+            activeCalories: 600
+        )
+
+        let days = [
+            makeCompleteDay(date: monday),
+            makeIncompleteDay(date: tuesday, metrics: tuesdayMetrics),
+            makeCompleteDay(date: wednesday)
+        ]
+
+        let examples = await collector.collectTrainingData(from: days)
+
+        // Only Mon and Wed produce training examples
+        #expect(examples.count == 2)
+        // Wed should use Tue's metrics from the Day record
+        #expect(examples[1].features.previousDayStepsNormalized == 0.6) // 12000/20000
+        #expect(examples[1].features.previousDayCaloriesNormalized == 0.6) // 600/1000
     }
 }

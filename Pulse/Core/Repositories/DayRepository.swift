@@ -47,6 +47,10 @@ protocol DayRepositoryProtocol: Sendable {
     /// the user day boundary. Finds the Day with `oldStart` and updates
     /// its startDate to `newStart`, preventing orphaned/duplicate records.
     func migrateDayStartDate(from oldStart: Date, to newStart: Date) async throws
+
+    /// Gets all Days that belong to past user-days and have not been activity-finalized.
+    /// These need their final step/calorie totals fetched from HealthKit.
+    func getUnfinalizedPastDays() async throws -> [Day]
 }
 
 // MARK: - Implementation
@@ -189,6 +193,21 @@ actor DayRepository: DayRepositoryProtocol {
             try modelContext.save()
         }
     }
+
+    func getUnfinalizedPastDays() async throws -> [Day] {
+        let currentDayStart = TimeWindows.currentUserDayStart
+        let predicate = #Predicate<DayEntity> { entity in
+            entity.isActivityFinalized == false && entity.startDate < currentDayStart
+        }
+
+        let descriptor = FetchDescriptor<DayEntity>(
+            predicate: predicate,
+            sortBy: [SortDescriptor(\.startDate, order: .reverse)]
+        )
+
+        let results = try modelContext.fetch(descriptor)
+        return results.map { $0.toDay() }
+    }
 }
 
 // MARK: - Mock Implementation
@@ -327,9 +346,18 @@ actor MockDayRepository: DayRepositoryProtocol {
                 firstCheckIn: old.firstCheckIn,
                 secondCheckIn: old.secondCheckIn,
                 healthMetrics: old.healthMetrics,
-                readinessScore: old.readinessScore
+                readinessScore: old.readinessScore,
+                isActivityFinalized: old.isActivityFinalized
             )
         }
+    }
+
+    func getUnfinalizedPastDays() async throws -> [Day] {
+        if let error = shouldThrowError { throw error }
+
+        return days
+            .filter { !$0.isActivityFinalized && $0.startDate < currentUserDayStart }
+            .sorted { $0.startDate > $1.startDate }
     }
 
     // MARK: - Test Helpers

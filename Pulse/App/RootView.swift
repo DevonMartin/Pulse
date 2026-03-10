@@ -187,6 +187,9 @@ struct RootView: View {
 		.onChange(of: scenePhase) { _, newPhase in
 			if newPhase == .active && hasCompletedOnboarding {
 				Task {
+					// Finalize any past days with stale activity metrics
+					await container.dayFinalizationService.finalizePastDays()
+
 					// Re-schedule to keep notification times in sync with settings
 					await container.notificationService.scheduleCheckInReminders()
 

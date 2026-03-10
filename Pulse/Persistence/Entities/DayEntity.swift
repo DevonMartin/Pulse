@@ -83,6 +83,12 @@ final class DayEntity {
     var breakdownSleepScore: Int = -1
     var breakdownEnergyScore: Int = -1
 
+    // MARK: - Finalization
+
+    /// Whether the final activity metrics (steps/calories) have been captured.
+    /// Default false for backwards compatibility — existing days will be finalized on next app launch.
+    var isActivityFinalized: Bool = false
+
     // MARK: - Initialization
 
     init(
@@ -129,6 +135,9 @@ final class DayEntity {
             self.breakdownSleepScore = score.breakdown.sleepScore ?? -1
             self.breakdownEnergyScore = score.breakdown.energyScore ?? -1
         }
+
+        // Finalization
+        self.isActivityFinalized = day.isActivityFinalized
     }
 }
 
@@ -207,7 +216,8 @@ extension DayEntity {
             firstCheckIn: firstSlot,
             secondCheckIn: secondSlot,
             healthMetrics: metrics,
-            readinessScore: score
+            readinessScore: score,
+            isActivityFinalized: isActivityFinalized
         )
     }
 
@@ -245,5 +255,8 @@ extension DayEntity {
             self.breakdownSleepScore = score.breakdown.sleepScore ?? -1
             self.breakdownEnergyScore = score.breakdown.energyScore ?? -1
         }
+
+        // Finalization
+        self.isActivityFinalized = day.isActivityFinalized
     }
 }

@@ -42,13 +42,19 @@ struct Day: Identifiable, Sendable {
     /// Computed after the first check-in using health metrics + energy level.
     var readinessScore: ReadinessScore?
 
+    /// Whether the final activity metrics (steps/calories) have been captured for this day.
+    /// Set to true once the user-day has ended and a final HealthKit fetch has been performed.
+    /// This is independent of `isComplete` — a day can be finalized without both check-ins.
+    var isActivityFinalized: Bool
+
     nonisolated init(
         id: UUID = UUID(),
         startDate: Date = Date(),
         firstCheckIn: CheckInSlot? = nil,
         secondCheckIn: CheckInSlot? = nil,
         healthMetrics: HealthMetrics? = nil,
-        readinessScore: ReadinessScore? = nil
+        readinessScore: ReadinessScore? = nil,
+        isActivityFinalized: Bool = false
     ) {
         self.id = id
         self.startDate = startDate
@@ -56,6 +62,7 @@ struct Day: Identifiable, Sendable {
         self.secondCheckIn = secondCheckIn
         self.healthMetrics = healthMetrics
         self.readinessScore = readinessScore
+        self.isActivityFinalized = isActivityFinalized
     }
 }
 
@@ -94,7 +101,8 @@ extension Day: Equatable {
         lhs.firstCheckIn == rhs.firstCheckIn &&
         lhs.secondCheckIn == rhs.secondCheckIn &&
         lhs.healthMetrics == rhs.healthMetrics &&
-        lhs.readinessScore?.id == rhs.readinessScore?.id
+        lhs.readinessScore?.id == rhs.readinessScore?.id &&
+        lhs.isActivityFinalized == rhs.isActivityFinalized
     }
 }
 

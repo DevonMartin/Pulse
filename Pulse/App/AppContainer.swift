@@ -39,6 +39,9 @@ final class AppContainer {
     /// The notification service for scheduling check-in reminders
     let notificationService: NotificationServiceProtocol
 
+    /// The day finalization service for capturing final activity metrics
+    let dayFinalizationService: DayFinalizationService
+
     // MARK: - Repositories
 
     /// The Day repository for user days with check-in slots
@@ -143,7 +146,10 @@ final class AppContainer {
         self.readinessCalculator = ReadinessCalculator()
 
         // Create the readiness service with ML blending
-        self.readinessService = ReadinessService(rulesCalculator: readinessCalculator)
+        self.readinessService = ReadinessService(
+            rulesCalculator: readinessCalculator,
+            healthKitService: healthKit
+        )
 
         #if DEBUG
         // Use mock repository with test data when UI testing.
@@ -169,6 +175,10 @@ final class AppContainer {
             )
 
             self.notificationService = MockNotificationService()
+            self.dayFinalizationService = DayFinalizationService(
+                dayRepository: mockRepo,
+                healthKitService: healthKit
+            )
             return
         }
         #endif
@@ -185,6 +195,12 @@ final class AppContainer {
 
         // Create the notification service
         self.notificationService = NotificationService()
+
+        // Create the day finalization service
+        self.dayFinalizationService = DayFinalizationService(
+            dayRepository: dayRepository,
+            healthKitService: healthKitService
+        )
     }
 
     // MARK: - Sample Data
@@ -307,7 +323,10 @@ final class AppContainer {
     ) {
         self.healthKitService = healthKitService
         self.readinessCalculator = readinessCalculator
-        let resolvedReadinessService = readinessService ?? ReadinessService(rulesCalculator: readinessCalculator)
+        let resolvedReadinessService = readinessService ?? ReadinessService(
+            rulesCalculator: readinessCalculator,
+            healthKitService: healthKitService
+        )
         self.readinessService = resolvedReadinessService
         let resolvedDayRepository = dayRepository ?? MockDayRepository()
         self.dayRepository = resolvedDayRepository
@@ -317,6 +336,10 @@ final class AppContainer {
             readinessService: resolvedReadinessService
         )
         self.notificationService = notificationService ?? MockNotificationService()
+        self.dayFinalizationService = DayFinalizationService(
+            dayRepository: resolvedDayRepository,
+            healthKitService: healthKitService
+        )
     }
 
     // MARK: - UI Testing Support

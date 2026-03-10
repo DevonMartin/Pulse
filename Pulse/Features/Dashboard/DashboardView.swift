@@ -168,13 +168,14 @@ struct DashboardView: View {
     }
 
     private func retrainMLModel() async {
-        // Fetch all completed days for training
+        // Fetch all days (not just completed) so the training data collector can
+        // look up the true previous calendar day's activity metrics for lagging
+        // indicators. Only complete days produce training examples.
         do {
-            let completedDays = try await container.dayRepository.getCompletedDays()
-            await container.readinessService.retrain(with: completedDays)
+            let allDays = try await container.dayRepository.getRecentDays(limit: 365)
+            await container.readinessService.retrain(with: allDays)
         } catch {
-            // TODO: Surface error to the user
-            // print("Failed to retrain ML model: \(error)")
+            // Silent failure — ML retraining is non-critical
         }
     }
 

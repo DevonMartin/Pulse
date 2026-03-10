@@ -86,12 +86,12 @@ actor ReadinessService: ReadinessServiceProtocol {
     init(
         rulesCalculator: ReadinessCalculatorProtocol = ReadinessCalculator(),
         mlModel: PersonalizedReadinessModel = PersonalizedReadinessModel(),
-        trainingDataCollector: TrainingDataCollector = TrainingDataCollector(),
+        healthKitService: HealthKitServiceProtocol,
         transitionDays: Int = 30
     ) {
         self.rulesCalculator = rulesCalculator
         self.mlModel = mlModel
-        self.trainingDataCollector = trainingDataCollector
+        self.trainingDataCollector = TrainingDataCollector(healthKitService: healthKitService)
         self.transitionDays = transitionDays
     }
 
