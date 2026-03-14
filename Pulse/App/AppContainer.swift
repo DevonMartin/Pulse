@@ -215,7 +215,7 @@ final class AppContainer {
         if AppContainer.isUITesting { return }
         #endif
 
-        let key = "hasPopulatedSampleDataV2"  // Bumped version for Day-based data
+        let key = "hasPopulatedSampleDataV3"  // Bumped for 25-day screenshot data
         guard !UserDefaults.standard.bool(forKey: key) else { return }
 
         // Generate and save sample Days
@@ -227,18 +227,24 @@ final class AppContainer {
         UserDefaults.standard.set(true, forKey: key)
     }
 
-    /// Generates sample historical Days for the past 14 days
+    /// Generates sample historical Days for the past 25 days with an upward score trend (for App Store screenshots)
     private static func generateSampleDays() -> [Day] {
         let calendar = Calendar.current
         let today = Date()
         var days: [Day] = []
 
-        for daysAgo in 1..<14 {
+        for daysAgo in 1..<26 {
             guard let date = calendar.date(byAdding: .day, value: -daysAgo, to: today) else {
                 continue
             }
 
             let dayStart = calendar.startOfDay(for: date)
+
+            // Progress: 0.0 = yesterday (newest), 1.0 = 25 days ago (oldest)
+            let progress = Double(daysAgo - 1) / 24.0
+
+            // Energy ramps up over time: older days 2-3, recent days 4-5
+            let firstEnergy = progress > 0.5 ? Int.random(in: 2...3) : Int.random(in: 4...5)
 
             // First check-in (around 7-9 AM)
             let firstHour = Int.random(in: 7...9)
@@ -246,45 +252,34 @@ final class AppContainer {
             guard let firstTimestamp = calendar.date(bySettingHour: firstHour, minute: firstMinute, second: 0, of: date) else {
                 continue
             }
-            let firstEnergy = Int.random(in: 2...5)
 
-            // Health metrics
+            // Health metrics also ramp: better HRV/RHR for recent days
             let healthMetrics = HealthMetrics(
                 date: date,
-                restingHeartRate: Double.random(in: 52...72),
-                hrv: Double.random(in: 25...75),
-                sleepDuration: TimeInterval.random(in: 5*3600...9*3600),
-                steps: Int.random(in: 3000...15000),
-                activeCalories: Double.random(in: 150...650)
+                restingHeartRate: Double.random(in: (56 + progress * 10)...(62 + progress * 10)),
+                hrv: Double.random(in: (55 - progress * 25)...(70 - progress * 20)),
+                sleepDuration: TimeInterval.random(in: (6.5 - progress * 1.5)*3600...(8.5 - progress * 1.0)*3600),
+                steps: Int.random(in: 5000...12000),
+                activeCalories: Double.random(in: 200...550)
             )
 
-            // Second check-in (around 8-10 PM) - 80% chance of having one
+            // Second check-in (around 8-10 PM) - all days for clean screenshots
+            let secondHour = Int.random(in: 20...22)
+            let secondMinute = Int.random(in: 0...59)
             var secondCheckIn: CheckInSlot? = nil
-            if Int.random(in: 1...10) <= 8 {
-                let secondHour = Int.random(in: 20...22)
-                let secondMinute = Int.random(in: 0...59)
-                if let secondTimestamp = calendar.date(bySettingHour: secondHour, minute: secondMinute, second: 0, of: date) {
-                    let secondEnergy = Int.random(in: 2...5)
-                    secondCheckIn = CheckInSlot(timestamp: secondTimestamp, energyLevel: secondEnergy)
-                }
+            if let secondTimestamp = calendar.date(bySettingHour: secondHour, minute: secondMinute, second: 0, of: date) {
+                let secondEnergy = progress > 0.5 ? Int.random(in: 2...4) : Int.random(in: 3...5)
+                secondCheckIn = CheckInSlot(timestamp: secondTimestamp, energyLevel: secondEnergy)
             }
 
-            // Create readiness score
-            let trendBonus = (14 - daysAgo) / 2
-            let baseScore = 60 + trendBonus + Int.random(in: -10...15)
+            // Score ramps from ~50 (oldest) to ~80 (newest) with small variance
+            let baseScore = 80 - Int(progress * 30) + Int.random(in: -5...5)
             let score = max(35, min(92, baseScore))
 
-            let hrvScore = score + Int.random(in: -8...8)
-            let rhrScore = score + Int.random(in: -8...8)
-            let sleepScore = score + Int.random(in: -12...12)
-            let energyScore = score + Int.random(in: -8...8)
-
-            let confidence: ReadinessConfidence = {
-                let roll = Int.random(in: 1...10)
-                if roll <= 7 { return .full }
-                if roll <= 9 { return .partial }
-                return .limited
-            }()
+            let hrvScore = score + Int.random(in: -5...5)
+            let rhrScore = score + Int.random(in: -5...5)
+            let sleepScore = score + Int.random(in: -8...8)
+            let energyScore = score + Int.random(in: -5...5)
 
             let readinessScore = ReadinessScore(
                 date: date,
@@ -295,7 +290,7 @@ final class AppContainer {
                     sleepScore: max(15, min(95, sleepScore)),
                     energyScore: max(20, min(100, energyScore))
                 ),
-                confidence: confidence,
+                confidence: .full,
                 healthMetrics: healthMetrics,
                 userEnergyLevel: firstEnergy
             )
