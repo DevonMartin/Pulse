@@ -187,6 +187,48 @@ struct TrendsChartView: View {
         }
     }
 
+    /// Single fill color for the area under the chart line.
+    /// Picks the higher tier between the most frequent dot color and the most recent dot color.
+    private var areaFillColor: Color {
+        let scores = daysWithScores.compactMap { $0.readinessScore?.score }
+        guard !scores.isEmpty else { return .green }
+
+        // Tier: 0 = poor/red, 1 = moderate/orange, 2 = good/green, 3 = excellent/mint
+        func tier(for score: Int) -> Int {
+            switch score {
+            case ReadinessStyles.poorRange: return 0
+            case ReadinessStyles.moderateRange: return 1
+            case ReadinessStyles.goodRange: return 2
+            case ReadinessStyles.excellentRange: return 3
+            default: return 1
+            }
+        }
+
+        func color(for tier: Int) -> Color {
+            switch tier {
+            case 0: return .red
+            case 1: return .orange
+            case 2: return .green
+            case 3: return .mint
+            default: return .green
+            }
+        }
+
+        // Most frequent tier
+        var tierCounts = [0: 0, 1: 0, 2: 0, 3: 0]
+        for score in scores {
+            tierCounts[tier(for: score), default: 0] += 1
+        }
+        let mostFrequentTier = tierCounts.max(by: { $0.value < $1.value })?.key ?? 2
+
+        // Most recent tier
+        let mostRecentTier = tier(for: scores.last!)
+
+        // Pick whichever is higher on the scale
+        let chosenTier = max(mostFrequentTier, mostRecentTier)
+        return color(for: chosenTier)
+    }
+
     // MARK: - Chart Card
 
     private var chartCard: some View {
@@ -215,7 +257,7 @@ struct TrendsChartView: View {
                     )
                     .foregroundStyle(
                         .linearGradient(
-                            colors: [ReadinessStyles.color(for: score).opacity(0.3), .clear],
+                            colors: [areaFillColor.opacity(0.3), .clear],
                             startPoint: .top,
                             endPoint: .bottom
                         )
