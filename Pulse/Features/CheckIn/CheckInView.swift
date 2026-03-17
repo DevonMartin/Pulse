@@ -115,10 +115,10 @@ struct CheckInView: View {
         errorMessage = nil
 
         do {
-            // Fetch today's health data using user-day boundaries (nil metrics are fine — device may have no data yet)
+            // Fetch today's health data using schedule-aware query windows
             let userDayStart = TimeWindows.currentUserDayStart
-            let userDayEnd = Calendar.current.date(byAdding: .day, value: 1, to: userDayStart)!
-            let todayMetrics = try? await container.healthKitService.fetchMetrics(from: userDayStart, to: userDayEnd)
+            let windows = DayService.metricsWindows(for: userDayStart, calendar: Calendar.current)
+            let todayMetrics = try? await container.healthKitService.fetchMetrics(windows: windows)
 
             // Get or create today's Day
             var day = try await container.dayRepository.getCurrentDay()

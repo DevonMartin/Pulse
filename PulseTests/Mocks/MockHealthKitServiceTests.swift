@@ -19,6 +19,16 @@ struct MockHealthKitServiceTests {
         return (start, end)
     }
 
+    /// Creates a simple MetricsWindows for testing (same range for both categories).
+    private func testWindows(from start: Date, to end: Date) -> MetricsWindows {
+        MetricsWindows(recovery: (start: start, end: end), activity: (start: start, end: end))
+    }
+
+    /// Calls fetchMetrics with test windows (mock ignores window specifics).
+    private func fetchMetrics(_ service: MockHealthKitService, from start: Date, to end: Date) async throws -> HealthMetrics {
+        try await service.fetchMetrics(windows: testWindows(from: start, to: end))
+    }
+
     // MARK: - Authorization Status Tests
 
     @Test func initialStatusIsNotDetermined() async {
@@ -121,7 +131,7 @@ struct MockHealthKitServiceTests {
         let service = MockHealthKitService()
         let range = dayRange(for: Date())
 
-        let metrics = try await service.fetchMetrics(from: range.start, to: range.end)
+        let metrics = try await fetchMetrics(service, from: range.start, to: range.end)
 
         #expect(metrics.date == range.start)
         #expect(metrics.hasAnyData)
@@ -147,7 +157,7 @@ struct MockHealthKitServiceTests {
             service.mockMetrics = customMetrics
         }
 
-        let metrics = try await service.fetchMetrics(from: range.start, to: range.end)
+        let metrics = try await fetchMetrics(service, from: range.start, to: range.end)
 
         #expect(metrics.restingHeartRate == 62)
         #expect(metrics.hrv == 45)
@@ -161,8 +171,8 @@ struct MockHealthKitServiceTests {
         let range1 = dayRange(for: Date())
         let range2 = dayRange(for: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
 
-        _ = try await service.fetchMetrics(from: range1.start, to: range1.end)
-        _ = try await service.fetchMetrics(from: range2.start, to: range2.end)
+        _ = try await fetchMetrics(service, from: range1.start, to: range1.end)
+        _ = try await fetchMetrics(service, from: range2.start, to: range2.end)
 
         let ranges = service.fetchMetricsRanges
         #expect(ranges.count == 2)
@@ -172,7 +182,7 @@ struct MockHealthKitServiceTests {
         let service = MockHealthKitService()
         let range = dayRange(for: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
 
-        let metrics = try await service.fetchMetrics(from: range.start, to: range.end)
+        let metrics = try await fetchMetrics(service, from: range.start, to: range.end)
 
         #expect(metrics.date == range.start)
     }
@@ -192,7 +202,7 @@ struct MockHealthKitServiceTests {
             service.mockMetrics = emptyMetrics
         }
 
-        let metrics = try await service.fetchMetrics(from: range.start, to: range.end)
+        let metrics = try await fetchMetrics(service, from: range.start, to: range.end)
 
         #expect(metrics.hasAnyData == false)
     }
@@ -207,7 +217,7 @@ struct MockHealthKitServiceTests {
 
         let startTime = Date()
         let range = dayRange(for: Date())
-        _ = try await service.fetchMetrics(from: range.start, to: range.end)
+        _ = try await fetchMetrics(service, from: range.start, to: range.end)
         let elapsed = Date().timeIntervalSince(startTime)
 
         #expect(elapsed >= 0.1)

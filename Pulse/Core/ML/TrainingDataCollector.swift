@@ -133,10 +133,7 @@ actor TrainingDataCollector {
         }
 
         // No Day record for previous calendar day — fetch from HealthKit
-        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: previousCalendarDay) else {
-            return nil
-        }
-
-        return try? await healthKitService.fetchMetrics(from: previousCalendarDay, to: dayEnd)
+        let windows = DayService.metricsWindows(for: previousCalendarDay, calendar: calendar)
+        return try? await healthKitService.fetchMetrics(windows: windows)
     }
 }

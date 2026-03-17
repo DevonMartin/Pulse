@@ -916,7 +916,12 @@ struct OnboardingView: View {
             // Attempt a data fetch to check if we actually got permission.
             let now = Date()
             let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now)!
-            let metrics = try await container.healthKitService.fetchMetrics(from: weekAgo, to: now)
+            // Use a broad window — we just need to check if any data exists
+            let probeWindows = MetricsWindows(
+                recovery: (start: weekAgo, end: now),
+                activity: (start: weekAgo, end: now)
+            )
+            let metrics = try await container.healthKitService.fetchMetrics(windows: probeWindows)
 
             let hasAnyData = metrics.restingHeartRate != nil
                 || metrics.hrv != nil

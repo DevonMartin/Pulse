@@ -364,6 +364,141 @@ struct DayServiceTests {
         #expect(allDays.isEmpty)
     }
 
+    // MARK: - Metrics Windows Tests
+
+    /// Helper: extracts the hour component from a date.
+    private func hour(of date: Date) -> Int {
+        Calendar.current.component(.hour, from: date)
+    }
+
+    /// Helper: extracts the day-of-year from a date for comparing which calendar day it falls on.
+    private func dayOfYear(_ date: Date) -> Int {
+        Calendar.current.ordinality(of: .day, in: .year, for: date)!
+    }
+
+    // MARK: Recovery Window (RHR, HRV, Sleep)
+
+    @Test func recoveryWindowDefaultSchedule() {
+        // Default: morning=8AM, evening=7PM
+        TimeWindows.saveCheckInTimes(morningHour: 8, morningMinute: 0, eveningHour: 19, eveningMinute: 0)
+
+        let calendar = Calendar.current
+        let userDayStart = calendar.startOfDay(for: Date())
+        let windows = DayService.metricsWindows(for: userDayStart, calendar: calendar)
+
+        // Recovery start: 3h before 7PM = 4PM previous day
+        #expect(hour(of: windows.recovery.start) == 16)
+        #expect(dayOfYear(windows.recovery.start) == dayOfYear(calendar.date(byAdding: .day, value: -1, to: userDayStart)!))
+
+        // Recovery end: 3h after 8AM = 11AM today
+        #expect(hour(of: windows.recovery.end) == 11)
+        #expect(dayOfYear(windows.recovery.end) == dayOfYear(userDayStart))
+    }
+
+    @Test func recoveryWindowLateEveningSchedule() {
+        // Late evening: morning=8AM, evening=1AM
+        TimeWindows.saveCheckInTimes(morningHour: 8, morningMinute: 0, eveningHour: 1, eveningMinute: 0)
+
+        let calendar = Calendar.current
+        let userDayStart = calendar.startOfDay(for: Date())
+        let windows = DayService.metricsWindows(for: userDayStart, calendar: calendar)
+
+        // Recovery start: 3h before 1AM = 10PM previous day
+        #expect(hour(of: windows.recovery.start) == 22)
+        #expect(dayOfYear(windows.recovery.start) == dayOfYear(calendar.date(byAdding: .day, value: -1, to: userDayStart)!))
+
+        // Recovery end: 3h after 8AM = 11AM today
+        #expect(hour(of: windows.recovery.end) == 11)
+        #expect(dayOfYear(windows.recovery.end) == dayOfYear(userDayStart))
+    }
+
+    @Test func recoveryWindowEarlyMorningSchedule() {
+        // Early morning: morning=5AM, evening=9PM
+        TimeWindows.saveCheckInTimes(morningHour: 5, morningMinute: 0, eveningHour: 21, eveningMinute: 0)
+
+        let calendar = Calendar.current
+        let userDayStart = calendar.startOfDay(for: Date())
+        let windows = DayService.metricsWindows(for: userDayStart, calendar: calendar)
+
+        // Recovery start: 3h before 9PM = 6PM previous day
+        #expect(hour(of: windows.recovery.start) == 18)
+        #expect(dayOfYear(windows.recovery.start) == dayOfYear(calendar.date(byAdding: .day, value: -1, to: userDayStart)!))
+
+        // Recovery end: 3h after 5AM = 8AM today
+        #expect(hour(of: windows.recovery.end) == 8)
+        #expect(dayOfYear(windows.recovery.end) == dayOfYear(userDayStart))
+    }
+
+    @Test func recoveryWindowCrossDaySchedule() {
+        // Night shift: morning=6PM, evening=6AM
+        TimeWindows.saveCheckInTimes(morningHour: 18, morningMinute: 0, eveningHour: 6, eveningMinute: 0)
+
+        let calendar = Calendar.current
+        let userDayStart = calendar.startOfDay(for: Date())
+        let windows = DayService.metricsWindows(for: userDayStart, calendar: calendar)
+
+        // Recovery start: 3h before 6AM = 3AM today
+        #expect(hour(of: windows.recovery.start) == 3)
+        #expect(dayOfYear(windows.recovery.start) == dayOfYear(userDayStart))
+
+        // Recovery end: 3h after 6PM = 9PM today
+        #expect(hour(of: windows.recovery.end) == 21)
+        #expect(dayOfYear(windows.recovery.end) == dayOfYear(userDayStart))
+    }
+
+    // MARK: Activity Window (Steps, Calories)
+
+    @Test func activityWindowDefaultSchedule() {
+        // Default: morning=8AM, evening=7PM
+        TimeWindows.saveCheckInTimes(morningHour: 8, morningMinute: 0, eveningHour: 19, eveningMinute: 0)
+
+        let calendar = Calendar.current
+        let userDayStart = calendar.startOfDay(for: Date())
+        let windows = DayService.metricsWindows(for: userDayStart, calendar: calendar)
+
+        // Activity start: 3h before 8AM = 5AM today
+        #expect(hour(of: windows.activity.start) == 5)
+        #expect(dayOfYear(windows.activity.start) == dayOfYear(userDayStart))
+
+        // Activity end: 3h after 7PM = 10PM today
+        #expect(hour(of: windows.activity.end) == 22)
+        #expect(dayOfYear(windows.activity.end) == dayOfYear(userDayStart))
+    }
+
+    @Test func activityWindowLateEveningSchedule() {
+        // Late evening: morning=8AM, evening=1AM
+        TimeWindows.saveCheckInTimes(morningHour: 8, morningMinute: 0, eveningHour: 1, eveningMinute: 0)
+
+        let calendar = Calendar.current
+        let userDayStart = calendar.startOfDay(for: Date())
+        let windows = DayService.metricsWindows(for: userDayStart, calendar: calendar)
+
+        // Activity start: 3h before 8AM = 5AM today
+        #expect(hour(of: windows.activity.start) == 5)
+        #expect(dayOfYear(windows.activity.start) == dayOfYear(userDayStart))
+
+        // Activity end: 3h after 1AM = 4AM next day (wraps past midnight)
+        #expect(hour(of: windows.activity.end) == 4)
+        #expect(dayOfYear(windows.activity.end) == dayOfYear(calendar.date(byAdding: .day, value: 1, to: userDayStart)!))
+    }
+
+    @Test func activityWindowEarlyMorningSchedule() {
+        // Early morning: morning=5AM, evening=9PM
+        TimeWindows.saveCheckInTimes(morningHour: 5, morningMinute: 0, eveningHour: 21, eveningMinute: 0)
+
+        let calendar = Calendar.current
+        let userDayStart = calendar.startOfDay(for: Date())
+        let windows = DayService.metricsWindows(for: userDayStart, calendar: calendar)
+
+        // Activity start: 3h before 5AM = 2AM (clamped to 0 by max(0, ...))
+        #expect(hour(of: windows.activity.start) == 2)
+        #expect(dayOfYear(windows.activity.start) == dayOfYear(userDayStart))
+
+        // Activity end: 3h after 9PM = midnight (wraps to next day 0AM)
+        #expect(hour(of: windows.activity.end) == 0)
+        #expect(dayOfYear(windows.activity.end) == dayOfYear(calendar.date(byAdding: .day, value: 1, to: userDayStart)!))
+    }
+
     // MARK: - Update Day With Metrics Tests
 
     @Test func updateDayWithMetricsCreatesNewDayWhenNoneExists() async throws {

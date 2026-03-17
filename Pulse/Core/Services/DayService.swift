@@ -40,6 +40,66 @@ actor DayService {
         self.timeWindowProvider = timeWindowProvider
     }
 
+    // MARK: - Metrics Query Windows
+
+    /// Computes HealthKit query windows for each metric category based on the user's schedule.
+    ///
+    /// Different metrics need different query windows:
+    /// - **Recovery** (RHR, HRV, sleep): Recorded overnight. Window spans from 3h before
+    ///   the previous evening check-in to 3h after the morning check-in.
+    /// - **Activity** (steps, calories): Accumulated during waking hours. Window spans from
+    ///   3h before the morning check-in to 3h after the evening check-in.
+    ///
+    /// Examples for default schedule (morning=8AM, evening=7PM):
+    /// - Recovery: previous day 4PM → today 11AM
+    /// - Activity: today 5AM → today 10PM
+    ///
+    /// Examples for late evening (morning=8AM, evening=1AM):
+    /// - Recovery: previous day 10PM → today 11AM
+    /// - Activity: today 5AM → tomorrow 4AM
+    static func metricsWindows(for userDayStart: Date, calendar: Calendar) -> MetricsWindows {
+        let calendarDayStart = calendar.startOfDay(for: userDayStart)
+
+        // --- Recovery window (RHR, HRV, sleep) ---
+        // Start: 3h before previous evening check-in
+        let eveningBufferedHour = (TimeWindows.eveningCheckInHour - 3 + 24) % 24
+        let recoveryStartDay: Date
+        if eveningBufferedHour >= 12 {
+            // Buffered hour is in the PM → place on previous calendar day
+            recoveryStartDay = calendar.date(byAdding: .day, value: -1, to: calendarDayStart)!
+        } else {
+            // Buffered hour is in the AM → place on current calendar day
+            recoveryStartDay = calendarDayStart
+        }
+        let recoveryStart = calendar.date(bySettingHour: eveningBufferedHour, minute: 0, second: 0, of: recoveryStartDay)!
+
+        // End: 3h after morning check-in
+        let morningBufferedHour = min(TimeWindows.morningCheckInHour + 3, 23)
+        let recoveryEnd = calendar.date(bySettingHour: morningBufferedHour, minute: 0, second: 0, of: calendarDayStart)!
+
+        // --- Activity window (steps, calories) ---
+        // Start: 3h before morning check-in (capture early morning exercise)
+        let activityStartHour = max(TimeWindows.morningCheckInHour - 3, 0)
+        let activityStart = calendar.date(bySettingHour: activityStartHour, minute: 0, second: 0, of: calendarDayStart)!
+
+        // End: 3h after evening check-in (capture late evening activity)
+        let activityEndHour = (TimeWindows.eveningCheckInHour + 3) % 24
+        let eveningIsNextDay = TimeWindows.eveningCheckInHour < TimeWindows.morningCheckInHour
+        let activityEndDay: Date
+        if eveningIsNextDay || TimeWindows.eveningCheckInHour + 3 >= 24 {
+            // Evening check-in is past midnight or +3h wraps → place on next calendar day
+            activityEndDay = calendar.date(byAdding: .day, value: 1, to: calendarDayStart)!
+        } else {
+            activityEndDay = calendarDayStart
+        }
+        let activityEnd = calendar.date(bySettingHour: activityEndHour, minute: 0, second: 0, of: activityEndDay)!
+
+        return MetricsWindows(
+            recovery: (start: recoveryStart, end: recoveryEnd),
+            activity: (start: activityStart, end: activityEnd)
+        )
+    }
+
     /// Result of loading and updating today's data.
     struct LoadResult: Sendable {
         let day: Day?
@@ -55,10 +115,12 @@ actor DayService {
         // Load existing day if any
         var currentDay = try await dayRepository.getCurrentDayIfExists()
 
-        // Fetch fresh metrics from HealthKit using user-day boundaries (not calendar midnight)
+        // Fetch fresh metrics from HealthKit using schedule-aware query windows.
+        // Recovery metrics (RHR, HRV, sleep) use an overnight window; activity metrics
+        // (steps, calories) use a full-day window with buffers before/after check-ins.
         let userDayStart = timeWindowProvider.currentUserDayStart
-        let userDayEnd = Calendar.current.date(byAdding: .day, value: 1, to: userDayStart)!
-        let freshMetrics = try? await healthKitService.fetchMetrics(from: userDayStart, to: userDayEnd)
+        let windows = Self.metricsWindows(for: userDayStart, calendar: Calendar.current)
+        let freshMetrics = try? await healthKitService.fetchMetrics(windows: windows)
 
         var metricsWereUpdated = false
         var scoreWasRecalculated = false

@@ -70,8 +70,8 @@ final class MockHealthKitService: HealthKitServiceProtocol {
         mockAuthorizationStatus = .authorized
     }
 
-    func fetchMetrics(from start: Date, to end: Date) async throws -> HealthMetrics {
-        fetchMetricsRanges.append((start: start, end: end))
+    func fetchMetrics(windows: MetricsWindows) async throws -> HealthMetrics {
+        fetchMetricsRanges.append((start: windows.activity.start, end: windows.activity.end))
         try await Task.sleep(for: .seconds(simulatedDelay))
 
         if let error = fetchMetricsError {
@@ -84,13 +84,13 @@ final class MockHealthKitService: HealthKitServiceProtocol {
         }
 
         // Check cache first to prevent re-randomizing on refresh
-        let cacheKey = Self.cacheDateFormatter.string(from: start)
+        let cacheKey = Self.cacheDateFormatter.string(from: windows.activity.start)
         if let cached = cachedMetrics[cacheKey] {
             return cached
         }
 
         // Generate and cache realistic sample data for development
-        let metrics = Self.sampleMetrics(for: start)
+        let metrics = Self.sampleMetrics(for: windows.activity.start)
         cachedMetrics[cacheKey] = metrics
         return metrics
     }

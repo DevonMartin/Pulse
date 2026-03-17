@@ -34,6 +34,25 @@ enum HealthKitServiceError: LocalizedError {
     }
 }
 
+// MARK: - Query Windows
+
+/// Defines the HealthKit query windows for different metric categories.
+///
+/// Each metric type has different temporal characteristics:
+/// - **Recovery** (RHR, HRV, sleep): Recorded overnight by Apple Watch.
+///   Window spans from the previous evening to the current morning.
+/// - **Activity** (steps, calories): Accumulated throughout the waking day.
+///   Window spans the full day with buffers before morning and after evening.
+struct MetricsWindows: Sendable {
+    /// Window for overnight recovery metrics (RHR, HRV, sleep).
+    /// Typically: 3h before previous evening check-in → 3h after morning check-in.
+    let recovery: (start: Date, end: Date)
+
+    /// Window for daytime activity metrics (steps, active calories).
+    /// Typically: 3h before morning check-in → 3h after evening check-in.
+    let activity: (start: Date, end: Date)
+}
+
 // MARK: - Protocol
 
 /// Defines the interface for accessing health data.
@@ -52,9 +71,9 @@ protocol HealthKitServiceProtocol {
     /// checking if data comes back empty.
     func requestAuthorization() async throws
 
-    /// Fetch health metrics for a specific date range.
+    /// Fetch health metrics using category-specific query windows.
     /// Returns a HealthMetrics struct with available data (nil for missing metrics).
-    func fetchMetrics(from start: Date, to end: Date) async throws -> HealthMetrics
+    func fetchMetrics(windows: MetricsWindows) async throws -> HealthMetrics
 }
 
 // MARK: - Implementation
@@ -151,18 +170,18 @@ final class HealthKitService: HealthKitServiceProtocol {
         }
     }
 
-    func fetchMetrics(from start: Date, to end: Date) async throws -> HealthMetrics {
-        // Fetch all metrics concurrently.
+    func fetchMetrics(windows: MetricsWindows) async throws -> HealthMetrics {
+        // Fetch all metrics concurrently using category-specific windows.
         // Each fetch returns nil if no data exists (rather than throwing),
         // so a fresh device with no health history still works.
-        async let restingHR = fetchRestingHeartRate(start: start, end: end)
-        async let hrv = fetchHRV(start: start, end: end)
-        async let sleep = fetchSleepDuration(start: start, end: end)
-        async let steps = fetchSteps(start: start, end: end)
-        async let calories = fetchActiveCalories(start: start, end: end)
+        async let restingHR = fetchRestingHeartRate(start: windows.recovery.start, end: windows.recovery.end)
+        async let hrv = fetchHRV(start: windows.recovery.start, end: windows.recovery.end)
+        async let sleep = fetchSleepDuration(start: windows.recovery.start, end: windows.recovery.end)
+        async let steps = fetchSteps(start: windows.activity.start, end: windows.activity.end)
+        async let calories = fetchActiveCalories(start: windows.activity.start, end: windows.activity.end)
 
         return HealthMetrics(
-            date: start,
+            date: windows.activity.start,
             restingHeartRate: await restingHR,
             hrv: await hrv,
             sleepDuration: await sleep,

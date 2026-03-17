@@ -61,15 +61,13 @@ actor DayFinalizationService {
         var finalizedCount = 0
 
         for var day in unfinalizedDays {
-            // Fetch full-day metrics from HealthKit for this day's date range
+            // Fetch full-day metrics from HealthKit using schedule-aware windows
             let dayStart = day.startDate
-            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
-                continue
-            }
+            let windows = DayService.metricsWindows(for: dayStart, calendar: calendar)
 
             let finalMetrics: HealthMetrics
             do {
-                finalMetrics = try await healthKitService.fetchMetrics(from: dayStart, to: dayEnd)
+                finalMetrics = try await healthKitService.fetchMetrics(windows: windows)
             } catch {
                 // Transient HealthKit failure — skip this day and retry next foreground
                 continue
