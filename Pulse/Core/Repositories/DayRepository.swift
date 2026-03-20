@@ -51,6 +51,10 @@ protocol DayRepositoryProtocol: Sendable {
     /// Gets all Days that belong to past user-days and have not been activity-finalized.
     /// These need their final step/calorie totals fetched from HealthKit.
     func getUnfinalizedPastDays() async throws -> [Day]
+
+    /// Gets all past Days (startDate before current user day), sorted ascending.
+    /// Used for one-time data recalculation after query window changes.
+    func getAllPastDays() async throws -> [Day]
 }
 
 // MARK: - Implementation
@@ -208,6 +212,21 @@ actor DayRepository: DayRepositoryProtocol {
         let results = try modelContext.fetch(descriptor)
         return results.map { $0.toDay() }
     }
+
+    func getAllPastDays() async throws -> [Day] {
+        let currentDayStart = TimeWindows.currentUserDayStart
+        let predicate = #Predicate<DayEntity> { entity in
+            entity.startDate < currentDayStart
+        }
+
+        let descriptor = FetchDescriptor<DayEntity>(
+            predicate: predicate,
+            sortBy: [SortDescriptor(\.startDate, order: .forward)]
+        )
+
+        let results = try modelContext.fetch(descriptor)
+        return results.map { $0.toDay() }
+    }
 }
 
 // MARK: - Mock Implementation
@@ -358,6 +377,14 @@ actor MockDayRepository: DayRepositoryProtocol {
         return days
             .filter { !$0.isActivityFinalized && $0.startDate < currentUserDayStart }
             .sorted { $0.startDate > $1.startDate }
+    }
+
+    func getAllPastDays() async throws -> [Day] {
+        if let error = shouldThrowError { throw error }
+
+        return days
+            .filter { $0.startDate < currentUserDayStart }
+            .sorted { $0.startDate < $1.startDate }
     }
 
     // MARK: - Test Helpers

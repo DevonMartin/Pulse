@@ -187,6 +187,12 @@ struct RootView: View {
 		.onChange(of: scenePhase) { _, newPhase in
 			if newPhase == .active && hasCompletedOnboarding {
 				Task {
+					// One-time recalculation after query window fix (v1)
+					if !UserDefaults.standard.bool(forKey: "didRecalculateMetricsV1") {
+						await container.dayFinalizationService.recalculateAllMetrics()
+						UserDefaults.standard.set(true, forKey: "didRecalculateMetricsV1")
+					}
+
 					// Finalize any past days with stale activity metrics
 					await container.dayFinalizationService.finalizePastDays()
 

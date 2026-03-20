@@ -27,12 +27,18 @@ actor DayFinalizationService {
 
     private let dayRepository: DayRepositoryProtocol
     private let healthKitService: HealthKitServiceProtocol
+    private let readinessService: ReadinessServiceProtocol
 
     // MARK: - Initialization
 
-    init(dayRepository: DayRepositoryProtocol, healthKitService: HealthKitServiceProtocol) {
+    init(
+        dayRepository: DayRepositoryProtocol,
+        healthKitService: HealthKitServiceProtocol,
+        readinessService: ReadinessServiceProtocol
+    ) {
         self.dayRepository = dayRepository
         self.healthKitService = healthKitService
+        self.readinessService = readinessService
     }
 
     // MARK: - Finalization
@@ -94,5 +100,73 @@ actor DayFinalizationService {
         }
 
         return finalizedCount
+    }
+
+    // MARK: - One-Time Recalculation
+
+    /// Re-fetches all metrics for every past day using corrected query windows.
+    ///
+    /// This is a one-time migration that fully replaces health metrics (not a merge)
+    /// because the previous query windows were incorrect, producing bad data
+    /// (e.g., sleep queried during daytime instead of overnight).
+    ///
+    /// For days with a morning check-in, readiness scores are also recalculated
+    /// since they depend on the corrected health data.
+    ///
+    /// - Returns: The number of days that were recalculated.
+    @discardableResult
+    func recalculateAllMetrics() async -> Int {
+        guard let allDays = try? await dayRepository.getAllPastDays(),
+              !allDays.isEmpty else {
+            return 0
+        }
+
+        let calendar = Calendar.current
+        var recalculatedCount = 0
+        var previousDayMetrics: HealthMetrics?
+
+        for var day in allDays {
+            let dayStart = day.startDate
+            let windows = DayService.metricsWindows(for: dayStart, calendar: calendar)
+
+            let freshMetrics: HealthMetrics
+            do {
+                freshMetrics = try await healthKitService.fetchMetrics(windows: windows)
+            } catch {
+                // Transient HealthKit failure — skip this day
+                previousDayMetrics = day.healthMetrics
+                continue
+            }
+
+            if freshMetrics.hasAnyData {
+                // Full replacement — old data was captured with wrong query windows
+                day.healthMetrics = HealthMetrics(
+                    date: dayStart,
+                    restingHeartRate: freshMetrics.restingHeartRate,
+                    hrv: freshMetrics.hrv,
+                    sleepDuration: freshMetrics.sleepDuration,
+                    steps: freshMetrics.steps,
+                    activeCalories: freshMetrics.activeCalories
+                )
+
+                // Recalculate readiness score if this day had a morning check-in
+                if let energyLevel = day.firstCheckIn?.energyLevel {
+                    if let newScore = await readinessService.calculate(
+                        from: day.healthMetrics,
+                        energyLevel: energyLevel,
+                        previousDayMetrics: previousDayMetrics
+                    ) {
+                        day.readinessScore = newScore
+                    }
+                }
+            }
+
+            day.isActivityFinalized = true
+            try? await dayRepository.save(day)
+            previousDayMetrics = day.healthMetrics
+            recalculatedCount += 1
+        }
+
+        return recalculatedCount
     }
 }

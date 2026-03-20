@@ -26,9 +26,14 @@ struct DayFinalizationServiceTests {
 
     private func makeService(
         repository: MockDayRepository,
-        healthKit: MockHealthKitService? = nil
+        healthKit: MockHealthKitService? = nil,
+        readinessService: MockReadinessService? = nil
     ) -> DayFinalizationService {
-        DayFinalizationService(dayRepository: repository, healthKitService: healthKit ?? MockHealthKitService())
+        DayFinalizationService(
+            dayRepository: repository,
+            healthKitService: healthKit ?? MockHealthKitService(),
+            readinessService: readinessService ?? MockReadinessService()
+        )
     }
 
     private func yesterday() -> Date {

@@ -177,7 +177,8 @@ final class AppContainer {
             self.notificationService = MockNotificationService()
             self.dayFinalizationService = DayFinalizationService(
                 dayRepository: mockRepo,
-                healthKitService: healthKit
+                healthKitService: healthKit,
+                readinessService: readinessService
             )
             return
         }
@@ -199,7 +200,8 @@ final class AppContainer {
         // Create the day finalization service
         self.dayFinalizationService = DayFinalizationService(
             dayRepository: dayRepository,
-            healthKitService: healthKitService
+            healthKitService: healthKitService,
+            readinessService: readinessService
         )
     }
 
@@ -333,7 +335,8 @@ final class AppContainer {
         self.notificationService = notificationService ?? MockNotificationService()
         self.dayFinalizationService = DayFinalizationService(
             dayRepository: resolvedDayRepository,
-            healthKitService: healthKitService
+            healthKitService: healthKitService,
+            readinessService: resolvedReadinessService
         )
     }
 
